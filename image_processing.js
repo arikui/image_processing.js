@@ -336,7 +336,7 @@ ImageProcessing.prototype = {
 		var n = 256 / (l * l);
 
 		this.each(function(px, x, y){
-			if(self.getPixel(x, y).average() > pattern[x % l][y % l] * n + 8)
+			if(px.average() > pattern[x % l][y % l] * n + 8)
 				self.setPixel(x, y, white);
 			else
 				self.setPixel(x, y, black);
