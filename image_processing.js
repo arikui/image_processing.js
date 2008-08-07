@@ -30,6 +30,14 @@ Color.prototype.each = function(f){
 	f(this.b, "b", this);
 };
 
+Color.prototype.average = function(){
+	return (this.r + this.g + this.b) / 3;
+};
+
+Color.prototype.invert = function(){
+	return new Color(255 - this.r, 255 - this.g, 255 - this.b);
+};
+
 /**
  * @s   string "#rrggbb"
  */
@@ -88,6 +96,7 @@ Color.fromYcc = function(y, c1, c2){
 };
 
 ImageProcessing.Color = Color;
+ImageProcessing.prototype.Color = Color;
 })();
 
 
@@ -112,12 +121,16 @@ ImageProcessing.load = function(src){
 };
 
 ImageProcessing.prototype = {
+	data: function(){
+		return this.canvas.toDataURL();
+	},
+
 	getPixel: function(x, y){
 		return ImageProcessing.Color.fromHex(this.gContext.getPixel(x, y));
 	},
 
 	setPixel: function(x, y, pixel){
-		this.gContext.setPixel(x, y, pixel);
+		this.gContext.setPixel(x, y, pixel.toString());
 	},
 
 	lock: function(){
@@ -136,6 +149,16 @@ ImageProcessing.prototype = {
 		for(var x = 0, w = this.canvas.width; x < w; x++)
 			for(var y = 0, h = this.canvas.height; y < h; y++)
 				f(this.getPixel(x, y), x, y, this);
+	},
+
+	map: function(f){
+		var a = [];
+
+		for(var x = 0, w = this.canvas.width; x < w; x++)
+			for(var y = 0, h = this.canvas.height; y < h; y++)
+				a.push(f(this.getPixel(x, y), x, y, this));
+
+		return a;
 	},
 
 	average: function(from_x, from_y, to_x, to_y){
@@ -278,5 +301,45 @@ ImageProcessing.prototype = {
 		context.closePath();
 
 		return canvas;
+	},
+
+	mosaic: function(size_w, size_h){
+		if(!size_h) size_h = size_w;
+
+		var to_x, to_y;
+
+		for(var x = 0, w = this.canvas.width; x < w; x += size_w){
+			to_x = (x + size_w >= this.canvas.width) ? this.canvas.width  - 1 : x + size_w;
+
+			for(var y = 0, h = this.canvas.height; y < h; y += size_h){
+				to_y = (y + size_h >= this.canvas.height)? this.canvas.height - 1 : y + size_h;
+
+				this.context.fillStyle = this.average(x, y, to_x, to_y).toString();
+				this.context.fillRect(x, y, size_w, size_h);
+			}
+		}
+	},
+
+	grayScale: function(){
+		var self = this;
+		this.each(function(px, x, y){
+			var v = px.r * 0.299 + px.g * 0.587 + px.b * 0.114;
+			self.setPixel(x, y, new ImageProcessing.Color(v, v, v));
+		});
+	},
+
+	dither: function(pattern){
+		var self = this;
+		var black = new ImageProcessing.Color(0, 0, 0);
+		var white = new ImageProcessing.Color(255, 255, 255);
+		var l = pattern.length;
+		var n = 256 / (l * l);
+
+		this.each(function(px, x, y){
+			if(self.getPixel(x, y).average() > pattern[x % l][y % l] * n + 8)
+				self.setPixel(x, y, white);
+			else
+				self.setPixel(x, y, black);
+		});
 	}
 };
