@@ -390,49 +390,5 @@ ImageProcessing.prototype = {
 			else
 				self.setPixel(x, y, black);
 		});
-	},
-
-	randomDither: function(){
-		var self = this;
-		var e, f;
-		var w = this.canvas.width;
-		var h = this.canvas.height;
-		var tmpImage = new Array(w + 1);
-
-		tmpImage.forEach(function(v, i){
-			tmpImage[i] = new Array(h + 1);
-
-			tmpImage[i].forEach(function(tmpImage_i, j){
-				tmpImage_i.push(0);
-			})
-		});
-
-		this.each(function(px, x, y){
-			f = tmpImage[x][y] + self.getPixel(x, y).average();
-
-			if(f > 127){
-				tmpImage[x][y] = 255;
-				e = f - 255;
-			}
-			else{
-				tmpImage[x][y] = 0;
-				e = f;
-			}
-
-			if(x < self.canvas.width - 1){
-				tmpImage[x + 1][y] = (5 / 16) * e + tmpImage[x + 1][y];
-			}
-
-			if(y < this.canvas.height - 1){
-				if(x > 0)
-					tmpImage[x - 1][y + 1] = (3 / 16) * e + tmpImage[x - 1][y + 1];
-
-				tmpImage[x][y + 1] = (5 / 16) * e + tmpImage[x][y + 1];
-
-				If(x < this.canvas.width - 1)
-					tmpImage[x + 1][y + 1] = (3 / 16) * e + tmpImage[x + 1][y + 1];
-			}
-
-		});
 	}
 };
