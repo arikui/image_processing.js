@@ -1,5 +1,4 @@
 (function(){
-
 var Color = function(r, g, b){
 	this.r = Math.round(r, 10);
 	this.g = Math.round(g, 10);
@@ -22,6 +21,18 @@ Color.prototype.toString = function(){
 	});
 
 	return "rgb(" + c + ")";
+};
+
+Color.prototype.round = function(){
+	var self = this;
+
+	this.each(function(v, x){
+			self[x] = (v > 255)? 255
+			         :(v <   0)? 0
+			         : Math.round(v);
+	});
+
+	return this;
 };
 
 Color.prototype.each = function(f){
@@ -101,9 +112,7 @@ ImageProcessing.prototype.Color = Color;
 
 
 function ImageProcessing(element){
-	this.canvas   = element;
-	this.context  = element.getContext("2d");
-	this.gContext = element.getContext("opera-2dgame");
+	this.init(element);
 };
 
 ImageProcessing.load = function(src){
@@ -121,6 +130,47 @@ ImageProcessing.load = function(src){
 };
 
 ImageProcessing.prototype = {
+	init: function(element){
+		this.canvas   = element;
+		this.context  = element.getContext("2d");
+
+		// set browser support
+		if(!ImageProcessing.support){
+			this.support = {
+				pixel    : false,
+				imageData: !!this.context.getImageData
+			};
+
+			try{
+				this.gContext = element.getContext("opera-2dgame");
+				this.support.pixel = true;
+			}
+			catch(e){}
+
+			ImageProcessing.support = this.support;
+		}
+
+		// use imageData object
+		if(!this.support.pixel){
+			ImageProcessing.prototype.getPixel = function(x, y){
+				var px = this.context.getImageData(x, y, 1, 1).data;
+				return new ImageProcessing.Color(px[0], px[1], px[2]);
+			};
+
+			ImageProcessing.prototype.setPixel = function(x, y, pixel){
+				pixel.round();
+				this._imageData.data = [pixel.r, pixel.g, pixel.b, 255];
+				this.context.putImageData(this._imageData, x, y);
+			};
+
+			ImageProcessing.prototype._imageData = {
+				width : 1,
+				height: 1,
+				data  : [0, 0, 0, 255]
+			};
+		}
+	},
+
 	data: function(){
 		return this.canvas.toDataURL();
 	},
@@ -243,7 +293,6 @@ ImageProcessing.prototype = {
 		if(!offset) offset = 0;
 
 		var ip = new ImageProcessing(this.canvas.cloneNode(false));
-		var gContext = ip.canvas.getContext("opera-2dgame");
 
 		var n = parseInt(flt.length / 2);
 		var width  = this.canvas.width - n;
@@ -252,8 +301,6 @@ ImageProcessing.prototype = {
 
 		var c = new ImageProcessing.Color(offset, offset, offset);
 		var p = null;
-
-		gContext.lockCanvasUpdates(true);
 
 		for(var x = n; x < width; x++){
 			for(var y = n; y < height; y++){
@@ -272,9 +319,6 @@ ImageProcessing.prototype = {
 				c = new ImageProcessing.Color(offset, offset, offset)
 			}
 		}
-
-		gContext.lockCanvasUpdates(false);
-		gContext.updateCanvas();
 
 		return ip;
 	},
