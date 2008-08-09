@@ -385,10 +385,160 @@ ImageProcessing.prototype = {
 		var n = 256 / (l * l);
 
 		this.each(function(px, x, y){
-			if(px.average() > pattern[x % l][y % l] * n + 8)
+			if(px.average() > pattern[x % l][y % l] * n + l * l / 2)
 				self.setPixel(x, y, white);
 			else
 				self.setPixel(x, y, black);
 		});
+	},
+
+	errorDiffuse: function(flt){
+		var self = this;
+
+		// init
+		var w = this.canvas.width;
+		var h = this.canvas.height;
+		var sum = 0;                    // total of flt values
+		var tmp = [];                   // temporary colors
+		var fw  = flt[0].length;        // filter width
+		var cur = parseInt(fw / 2, 10); // current pixel x of flt
+
+		// init sum
+		flt.forEach(function(_){
+			_.forEach(function(n){
+				sum += n;
+			});
+		});
+
+		// init tmp
+		for(var y = 0; y < h; y++){
+			tmp[y] = [];
+			for(var x = 0; x < w; x++){
+				tmp[y][x] = 0;
+			}
+		}
+
+		// filtering
+		this.each(function(px, x, y){
+			var e;
+			var f = tmp[y][x] + px.average();
+
+			if(f > 127){
+				tmp[y][x] = 255;
+				e = f - 255;
+			}
+			else{
+				tmp[y][x] = 0;
+				e = f;
+			}
+
+			flt.forEach(function(_, ny){
+				var _y = y + ny;
+				if(_y >= h) return;
+
+				_.forEach(function(v, nx){
+					var _x = x + nx - cur;
+
+					if(0 > _x || _x >= w || !flt[ny][nx]) return;
+					tmp[_y][_x] += e * v / sum;
+
+				});
+			});
+		});
+
+		tmp.forEach(function(_, y){
+			_.forEach(function(v, x){
+				self.setPixel(x, y, new ImageProcessing.Color(v, v, v));
+			});
+		});
 	}
+};
+
+// constant variables
+ImageProcessing.dither = {
+	bayer: [
+		[ 0,  8,  2, 10],
+		[12,  4, 14,  6],
+		[ 3, 11,  1,  9],
+		[15,  7, 13,  5]
+	],
+
+	bayer8: [
+		[ 0, 32,  8, 40,  2, 34, 10, 42],
+		[48, 16, 56, 24, 50, 18, 58, 26],
+		[12, 44,  4, 36, 14, 46,  6, 38],
+		[60, 28, 52, 20, 62, 30, 54, 22],
+		[ 3, 35, 11, 43,  1, 33,  9, 41],
+		[51, 19, 59, 27, 49, 17, 57, 25],
+		[15, 47,  7, 39, 13, 45,  5, 37],
+		[63, 31, 55, 23, 61, 29, 53, 21]
+	],
+
+	screw: [
+		[ 0,  8,  2, 10],
+		[12,  4, 14,  6],
+		[ 3, 11,  1,  9],
+		[15,  7, 13,  5]
+	],
+
+	dotConcentrate: [
+		[12, 4, 8, 14],
+		[10, 0, 1,  7],
+		[ 6, 3, 2, 11],
+		[15, 9, 5, 13]
+	]
+};
+
+ImageProcessing.filter = {
+	sharp: [
+		[ 0, -1,  0],
+		[-1,  5, -1],
+		[ 0, -1,  0]
+	]
+};
+
+ImageProcessing.errorDiffuse = {
+	floydSteinberg: [
+		[0, 0, 7],
+		[3, 5, 1]
+	],
+
+	jarvisJudiceNinke: [
+		[0, 0, 0, 7, 5],
+		[3, 5, 7, 5, 3],
+		[1, 3, 5, 3, 1]
+	],
+
+	stucki: [
+		[0, 0, 0, 8, 4],
+		[2, 4, 8, 4, 2],
+		[1, 2, 4, 2, 1]
+	],
+
+	burkes: [
+		[0, 0, 0, 8, 4],
+		[2, 4, 8, 4, 2]
+	],
+
+	sierra3: [
+		[0, 0, 0, 5, 3],
+		[2, 4, 5, 4, 2],
+		[0, 2, 3, 2, 0]
+	],
+
+	sierra2: [
+		[0, 0, 0, 4, 3],
+		[1, 2, 3, 2, 1]
+	],
+
+	filterLite: [
+		[0, 0, 2],
+		[1, 1, 0]
+	],
+
+	atkinson: [
+		[ 0, 0, 1, 1],
+		[ 1, 1, 1, 0],
+		[ 0, 1, 0, 0]
+	]
 };
