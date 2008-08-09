@@ -454,7 +454,7 @@ ImageProcessing.prototype = {
 	}
 };
 
-// constant variables
+// constants
 ImageProcessing.dither = {
 	bayer: [
 		[ 0,  8,  2, 10],
@@ -494,6 +494,24 @@ ImageProcessing.filter = {
 		[ 0, -1,  0],
 		[-1,  5, -1],
 		[ 0, -1,  0]
+	],
+
+	blur: [
+		[0.08, 0.12, 0.08],
+		[0.12, 0.2 , 0.12],
+		[0.08, 0.12, 0.08]
+	],
+
+	emboss: [
+		[1, 0,  0],
+		[0, 0,  0],
+		[0, 0, -1]
+	],
+
+	outline: [
+		[1,  1, 1],
+		[1, -8, 1],
+		[1,  1, 1]
 	]
 };
 
@@ -520,7 +538,7 @@ ImageProcessing.errorDiffuse = {
 		[2, 4, 8, 4, 2]
 	],
 
-	sierra3: [
+	sierra: [
 		[0, 0, 0, 5, 3],
 		[2, 4, 5, 4, 2],
 		[0, 2, 3, 2, 0]
