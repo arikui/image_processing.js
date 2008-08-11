@@ -3,12 +3,6 @@ var Color = function(r, g, b){
 	this.r = Math.round(r, 10);
 	this.g = Math.round(g, 10);
 	this.b = Math.round(b, 10);
-
-	"rgb".split("").forEach(function(x){
-		this[x] = (this[x] >= 255)? 255
-		         :(this[x] <=   0)? 0
-		         : this[x];
-	});
 }
 
 Color.prototype.toString = function(){
@@ -45,6 +39,15 @@ Color.prototype.average = function(){
 	return (this.r + this.g + this.b) / 3;
 };
 
+Color.prototype.geomean = function(){
+	return Math.sqrt(Math.pow(this.r, 2) + Math.pow(this.g, 2) + Math.pow(this.b, 2));
+};
+
+Color.prototype.grayScale = function(){
+	var v = this.r * 0.299 + this.g * 0.587 + this.b * 0.114;
+	return new Color(v, v, v);
+};
+
 Color.prototype.invert = function(){
 	return new Color(255 - this.r, 255 - this.g, 255 - this.b);
 };
@@ -77,7 +80,7 @@ Color.fromHsv = function(h, s, v){
 	if(s = 0)
 		return new Color(v, v, v);
 
-	var ht = H * 6;
+	var ht = h * 6;
 	var d = ht % 360;
 	var t1 = Math.round((255 - s) / 255 * v);
 	var t2 = Math.round(((255 - d) / 360 * s) / 255 * v);
@@ -115,6 +118,9 @@ function ImageProcessing(element){
 	this.init(element);
 };
 
+/**
+ * create object by image source
+ */
 ImageProcessing.load = function(src){
 	var canvas = document.createElement("canvas");
 	var ip     = new ImageProcessing(canvas);
@@ -130,9 +136,24 @@ ImageProcessing.load = function(src){
 };
 
 ImageProcessing.prototype = {
+	imageData: null,
+	locked   : false,
+
+	/**
+	 * ImageData template
+	 */
+	_imageData: {
+		width : 1,
+		height: 1,
+		data  : [0, 0, 0, 255]
+	},
+
+	/**
+	 * constructor
+	 */
 	init: function(element){
-		this.canvas  = element;
-		this.context = element.getContext("2d");
+		if(element) this.canvas = element;
+		this.context = this.canvas.getContext("2d");
 
 		// set browser support
 		if(!ImageProcessing.support){
@@ -142,7 +163,7 @@ ImageProcessing.prototype = {
 			};
 
 			try{
-				this.gContext = element.getContext("opera-2dgame");
+				this.gContext = this.canvas.getContext("opera-2dgame");
 				this.support.pixel = true;
 			}
 			catch(e){}
@@ -153,6 +174,10 @@ ImageProcessing.prototype = {
 			this.support = ImageProcessing.support;
 
 		// use imageData object
+		this.initPixelControl();
+	},
+
+	initPixelControl: function(){
 		if(!this.support.pixel){
 			ImageProcessing.prototype.getPixel = function(x, y){
 				var px = this.context.getImageData(x, y, 1, 1).data;
@@ -161,18 +186,34 @@ ImageProcessing.prototype = {
 
 			ImageProcessing.prototype.setPixel = function(x, y, pixel){
 				pixel.round();
+
+				if(this.locked){
+					var n = x * 4 + y * this.canvas.width * 4;
+					this.imageData.data[n++] = pixel.r;
+					this.imageData.data[n++] = pixel.g;
+					this.imageData.data[n++] = pixel.b;
+
+					return;
+				}
+
 				this._imageData.data = [pixel.r, pixel.g, pixel.b, 255];
 				this.context.putImageData(this._imageData, x, y);
 			};
+		}
+		else{
+			ImageProcessing.prototype.getPixel = function(x, y){
+				return ImageProcessing.Color.fromHex(this.gContext.getPixel(x, y));
+			};
 
-			ImageProcessing.prototype._imageData = {
-				width : 1,
-				height: 1,
-				data  : [0, 0, 0, 255]
+			ImageProcessing.prototype.setPixel = function(x, y, pixel){
+				this.gContext.setPixel(x, y, pixel.toString());
 			};
 		}
 	},
 
+	/**
+	 * get data url
+	 */
 	data: function(){
 		return this.canvas.toDataURL();
 	},
@@ -186,18 +227,26 @@ ImageProcessing.prototype = {
 	},
 
 	lock: function(){
+		this.locked = true;
+
 		if(this.support.pixel)
-			this.gContext.lockCanvasUpdates(true);
+			this.gContext.lockCanvasUpdates(this.locked);
+		else
+			this.imageData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
 	},
 
 	unlock: function(){
+		this.locked = false;
+
 		if(this.support.pixel)
-			this.gContext.lockCanvasUpdates(false);
+			this.gContext.lockCanvasUpdates(this.locked);
 	},
 
 	update: function(){
 		if(this.support.pixel)
 			this.gContext.updateCanvas();
+		else
+			this.context.putImageData(this.imageData, 0, 0);
 	},
 
 	each: function(f){
@@ -384,8 +433,10 @@ ImageProcessing.prototype = {
 		var l = pattern.length;
 		var n = 256 / (l * l);
 
+		var tmpPx = new ImageProcessing.Color(0, 0, 0);
+
 		this.each(function(px, x, y){
-			if(px.average() > pattern[x % l][y % l] * n + l * l / 2)
+			if(px.grayScale().r > pattern[x % l][y % l] * n + l * l / 2)
 				self.setPixel(x, y, white);
 			else
 				self.setPixel(x, y, black);
@@ -401,7 +452,7 @@ ImageProcessing.prototype = {
 		var sum = 0;                    // total of flt values
 		var tmp = [];                   // temporary colors
 		var fw  = flt[0].length;        // filter width
-		var cur = parseInt(fw / 2, 10); // current pixel x of flt
+		var cur = parseInt(fw / 2, 10); // current pixel (X) of flt
 
 		// init sum
 		flt.forEach(function(_){
@@ -421,7 +472,7 @@ ImageProcessing.prototype = {
 		// filtering
 		this.each(function(px, x, y){
 			var e;
-			var f = tmp[y][x] + px.average();
+			var f = tmp[y][x] + px.grayScale().r;
 
 			if(f > 127){
 				tmp[y][x] = 255;
