@@ -5,51 +5,133 @@ var Color = function(r, g, b){
 	this.b = Math.round(b, 10);
 }
 
-Color.prototype.toString = function(){
-	var c = [];
+Color.prototype = {
+	toString: function(){
+		var c = [];
 
-	this.each(function(v, x){
-			c.push((v > 255)? 255
-			      :(v <   0)? 0
-			      : Math.round(v));
-	});
+		this.each(function(v, x){
+				c.push((v > 255)? 255
+				      :(v <   0)? 0
+				      : Math.round(v));
+		});
 
-	return "rgb(" + c + ")";
-};
+		return "rgb(" + c + ")";
+	},
 
-Color.prototype.round = function(){
-	var self = this;
+	valueOf: function(){
+		return this.toString();
+	},
 
-	this.each(function(v, x){
-			self[x] = (v > 255)? 255
-			         :(v <   0)? 0
-			         : Math.round(v);
-	});
+	round: function(){
+		var c = new Color(0, 0, 0);
 
-	return this;
-};
+		this.each(function(v, x){
+				c[x] = (v > 255)? 255
+				      :(v <   0)? 0
+				      :Math.round(v);
+		});
 
-Color.prototype.each = function(f){
-	f(this.r, "r", this);
-	f(this.g, "g", this);
-	f(this.b, "b", this);
-};
+		return c;
+	},
 
-Color.prototype.average = function(){
-	return (this.r + this.g + this.b) / 3;
-};
+	each: function(f){
+		f(this.r, "r", this);
+		f(this.g, "g", this);
+		f(this.b, "b", this);
 
-Color.prototype.geomean = function(){
-	return Math.pow(this.r * this.g * this.b, 1/3));
-};
+		return this;
+	},
 
-Color.prototype.grayScale = function(){
-	var v = this.r * 0.299 + this.g * 0.587 + this.b * 0.114;
-	return new Color(v, v, v);
-};
+	map: function(){
+		return [f(this.r, "r", this), (this.g, "g", this), f(this.b, "b", this)];
+	},
 
-Color.prototype.invert = function(){
-	return new Color(255 - this.r, 255 - this.g, 255 - this.b);
+	clone: function(){
+		return new Color(this.r, this.g, this.b);
+	},
+
+	max: function(){
+		return Math.max.apply(null, [this.r, this.g, this.b]);
+	},
+
+	min: function(){
+		return Math.min.apply(null, [this.r, this.g, this.b]);
+	},
+
+	average: function(){
+		return (this.r + this.g + this.b) / 3;
+	},
+
+	geomean: function(){
+		return Math.pow(this.r * this.g * this.b, 1/3);
+	},
+
+	middle: function(){
+		return (this.max() + this.min()) / 2;
+	},
+
+	intensity: function(v){
+		return new Color(this.r + v, this.g + v, this.b + v);
+	},
+
+	threshold: function(r, g, b){
+		if(!r && r != 0) r = 127;
+		if(!g && g != 0) g = r;
+		if(!b && b != 0) b = r;
+
+		var tc = new Color(r, g, b);
+
+		var c = new Color(0, 0, 0);
+
+		this.each(function(v, x){
+				c[x] = (v > tc[x])? 255 : 0;
+		});
+
+		return c;
+	},
+
+	gamma: function(g){
+		var c = new Color(0, 0, 0);
+
+		c.r = 255 * Math.pow(this.r / 255, g);
+		c.g = 255 * Math.pow(this.g / 255, g);
+		c.b = 255 * Math.pow(this.b / 255, g);
+
+		return c;
+	},
+
+	grayScale: function(){
+		var v = this.r * 0.222015 + this.g * 0.706655 + this.b * 0.071330;
+		return new Color(v, v, v);
+	},
+
+	 ntsc: function(){
+		var v = this.r * 0.299 + this.g * 0.587 + this.b * 0.114;
+		return new Color(v, v, v);
+	},
+
+	hdtv: function(x){
+		if(!x) x = 1;
+
+		var r = Math.pow(this.r, x) * 0.222015;
+		var g = Math.pow(this.g, x) * 0.706655;
+		var b = Math.pow(this.b, x) * 0.071330;
+		var y = Math.pow(r + g + b, 1 / x);
+
+		return new Color(y, y, y);
+	},
+
+	invert: function(){
+		return new Color(255 - this.r, 255 - this.g, 255 - this.b);
+	},
+
+	/**
+	 * @v   lightness value
+	 */
+	sepia: function(v){
+		if(!v) v = 1;
+		return new Color(this.r * 0.957 * v, this.g * 0.784 * v, this.b * 0.567 * v);
+	}
 };
 
 /**
@@ -179,6 +261,14 @@ ImageProcessing.prototype = {
 		return this;
 	},
 
+	load: function(src){
+		var img = new Image();
+		img.src = src;
+		this.context.drawImage(img, 0, 0, img.width, img.height);
+
+		return this;
+	},
+
 	initPixelControl: function(){
 		if(!this.support.pixel){
 			ImageProcessing.prototype.getPixel = function(x, y){
@@ -194,7 +284,7 @@ ImageProcessing.prototype = {
 			};
 
 			ImageProcessing.prototype.setPixel = function(x, y, pixel){
-				pixel.round();
+				pixel = pixel.round();
 
 				if(this.locked){
 					var n = x * 4 + y * this.canvas.width * 4;
