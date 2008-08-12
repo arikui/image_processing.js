@@ -40,7 +40,7 @@ Color.prototype.average = function(){
 };
 
 Color.prototype.geomean = function(){
-	return Math.sqrt(Math.pow(this.r, 2) + Math.pow(this.g, 2) + Math.pow(this.b, 2));
+	return Math.pow(this.r * this.g * this.b, 1/3));
 };
 
 Color.prototype.grayScale = function(){
