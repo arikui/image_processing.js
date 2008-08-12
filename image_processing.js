@@ -175,11 +175,20 @@ ImageProcessing.prototype = {
 
 		// use imageData object
 		this.initPixelControl();
+
+		return this;
 	},
 
 	initPixelControl: function(){
 		if(!this.support.pixel){
 			ImageProcessing.prototype.getPixel = function(x, y){
+				if(this.locked){
+					var data = this.imageData.data;
+					var n = x * 4 + y * this.canvas.width * 4;
+
+					return new ImageProcessing.Color(data[n++], data[n++], data[n]);
+				}
+
 				var px = this.context.getImageData(x, y, 1, 1).data;
 				return new ImageProcessing.Color(px[0], px[1], px[2]);
 			};
@@ -191,7 +200,7 @@ ImageProcessing.prototype = {
 					var n = x * 4 + y * this.canvas.width * 4;
 					this.imageData.data[n++] = pixel.r;
 					this.imageData.data[n++] = pixel.g;
-					this.imageData.data[n++] = pixel.b;
+					this.imageData.data[n  ] = pixel.b;
 
 					return;
 				}
@@ -209,6 +218,8 @@ ImageProcessing.prototype = {
 				this.gContext.setPixel(x, y, pixel.toString());
 			};
 		}
+
+		return this;
 	},
 
 	/**
@@ -224,6 +235,7 @@ ImageProcessing.prototype = {
 
 	setPixel: function(x, y, pixel){
 		this.gContext.setPixel(x, y, pixel.toString());
+		return this;
 	},
 
 	lock: function(){
@@ -233,6 +245,8 @@ ImageProcessing.prototype = {
 			this.gContext.lockCanvasUpdates(this.locked);
 		else
 			this.imageData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
+
+		return this;
 	},
 
 	unlock: function(){
@@ -240,6 +254,8 @@ ImageProcessing.prototype = {
 
 		if(this.support.pixel)
 			this.gContext.lockCanvasUpdates(this.locked);
+
+		return this;
 	},
 
 	update: function(){
@@ -247,12 +263,16 @@ ImageProcessing.prototype = {
 			this.gContext.updateCanvas();
 		else
 			this.context.putImageData(this.imageData, 0, 0);
+
+		return this;
 	},
 
 	each: function(f){
 		for(var x = 0, w = this.canvas.width; x < w; x++)
 			for(var y = 0, h = this.canvas.height; y < h; y++)
 				f(this.getPixel(x, y), x, y, this);
+
+		return this;
 	},
 
 	map: function(f){
@@ -346,6 +366,8 @@ ImageProcessing.prototype = {
 	filter: function(flt, offset){
 		if(!offset) offset = 0;
 
+		var supportPx = this.support.pixel;
+
 		var ip = new ImageProcessing(this.canvas.cloneNode(false));
 
 		var n = parseInt(flt.length / 2);
@@ -355,6 +377,12 @@ ImageProcessing.prototype = {
 
 		var c = new ImageProcessing.Color(offset, offset, offset);
 		var p = null;
+
+		ip.support.pixel = false;
+		ip.initPixelControl();
+		ip.lock();
+
+		ip.imageData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
 
 		for(var x = n; x < width; x++){
 			for(var y = n; y < height; y++){
@@ -369,12 +397,21 @@ ImageProcessing.prototype = {
 				}
 
 				ip.setPixel(x, y, c);
-
 				c = new ImageProcessing.Color(offset, offset, offset)
 			}
 		}
 
-		return ip;
+		this.support.pixel = false;
+		this.initPixelControl();
+		this.imageData = ip.imageData;
+		this.update();
+
+		if(supportPx){
+			this.support.pixel = true;
+			this.initPixelControl();
+		}
+
+		return this;
 	},
 
 	graph: function(f){
@@ -416,14 +453,19 @@ ImageProcessing.prototype = {
 				this.context.fillRect(x, y, size_w, size_h);
 			}
 		}
+
+		return this;
 	},
 
 	grayScale: function(){
 		var self = this;
+
 		this.each(function(px, x, y){
 			var v = px.r * 0.299 + px.g * 0.587 + px.b * 0.114;
 			self.setPixel(x, y, new ImageProcessing.Color(v, v, v));
 		});
+
+		return this;
 	},
 
 	dither: function(pattern){
@@ -441,6 +483,8 @@ ImageProcessing.prototype = {
 			else
 				self.setPixel(x, y, black);
 		});
+
+		return this;
 	},
 
 	errorDiffuse: function(flt){
@@ -502,6 +546,8 @@ ImageProcessing.prototype = {
 				self.setPixel(x, y, new ImageProcessing.Color(v, v, v));
 			});
 		});
+
+		return this;
 	}
 };
 
