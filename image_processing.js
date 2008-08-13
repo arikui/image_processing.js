@@ -218,16 +218,14 @@ ImageProcessing.load = function(src){
 };
 
 ImageProcessing.prototype = {
-	imageData: null,
-	locked   : false,
-
-	/**
-	 * ImageData template
-	 */
-	_imageData: {
-		width : 1,
-		height: 1,
-		data  : [0, 0, 0, 255]
+	locked: false,
+	tmp: {
+		imageData: null,
+		imageData1: {
+			width : 1,
+			height: 1,
+			data  : [0, 0, 0, 255]
+		}
 	},
 
 	/**
@@ -269,11 +267,15 @@ ImageProcessing.prototype = {
 		return this;
 	},
 
+	clone: function(){
+		return ImageProcessing.load(this.data());
+	},
+
 	initPixelControl: function(){
 		if(!this.support.pixel){
 			ImageProcessing.prototype.getPixel = function(x, y){
 				if(this.locked){
-					var data = this.imageData.data;
+					var data = this.tmp.imageData.data;
 					var n = x * 4 + y * this.canvas.width * 4;
 
 					return new ImageProcessing.Color(data[n++], data[n++], data[n]);
@@ -288,15 +290,15 @@ ImageProcessing.prototype = {
 
 				if(this.locked){
 					var n = x * 4 + y * this.canvas.width * 4;
-					this.imageData.data[n++] = pixel.r;
-					this.imageData.data[n++] = pixel.g;
-					this.imageData.data[n  ] = pixel.b;
+					this.tmp.imageData.data[n++] = pixel.r;
+					this.tmp.imageData.data[n++] = pixel.g;
+					this.tmp.imageData.data[n  ] = pixel.b;
 
 					return;
 				}
 
-				this._imageData.data = [pixel.r, pixel.g, pixel.b, 255];
-				this.context.putImageData(this._imageData, x, y);
+				this.tmp.imageData1.data = [pixel.r, pixel.g, pixel.b, 255];
+				this.context.putImageData(this.tmp.imageData1, x, y);
 			};
 		}
 		else{
@@ -334,7 +336,7 @@ ImageProcessing.prototype = {
 		if(this.support.pixel)
 			this.gContext.lockCanvasUpdates(this.locked);
 		else
-			this.imageData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
+			this.tmp.imageData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
 
 		return this;
 	},
@@ -352,7 +354,7 @@ ImageProcessing.prototype = {
 		if(this.support.pixel)
 			this.gContext.updateCanvas();
 		else
-			this.context.putImageData(this.imageData, 0, 0);
+			this.context.putImageData(this.tmp.imageData, 0, 0);
 
 		return this;
 	},
@@ -401,9 +403,7 @@ ImageProcessing.prototype = {
 		return color;
 	},
 
-	createHistogram: function(){
-		var canvas = document.createElement("canvas");
-		var context = canvas.getContext("2d");
+	histogram: function(){
 		var data = {r: [], g: [], b: []};
 
 		for(var i = 0; i <= 255; i++)
@@ -418,39 +418,74 @@ ImageProcessing.prototype = {
 			data.b[px.b]++;
 		});
 
-		var max = Math.max.apply(null, data.r.concat(data.g).concat(data.b));
-		var min = Math.min.apply(null, data.r.concat(data.g).concat(data.b));
-		var scale = (max - min) / 256;
+		return data;
+	},
 
-		canvas.width = 256;
-		canvas.height = 256;
+	max: function(){
+		var data = {r: [], g: [], b: []};
 
-		context.lineWidth = 1;
-
-		"rgb".split("").forEach(function(x){
-			switch(x){
-				case "r":
-					context.strokeStyle = "rgba(255,0,0,1)";
-					break;
-				case "g":
-					context.strokeStyle = "rgba(0,255,0,1)";
-					break;
-				case "b":
-					context.strokeStyle = "rgba(0,0,255,1)";
-					break;
-			}
-			context.beginPath();
-			context.moveTo(0,0);
-
-			data[x].forEach(function(v, i){
-				context.lineTo(i, (v - min)/ scale);
-			});
-
-			context.stroke();
-			context.closePath();
+		this.each(function(px){
+			data.r.push(px.r);
+			data.g.push(px.g);
+			data.b.push(px.b);
 		});
 
-		return canvas;
+		return new ImageProcessing.Color(
+			Math.max.apply(null, data.r),
+			Math.max.apply(null, data.g),
+			Math.max.apply(null, data.b)
+		);
+	},
+
+	min: function(){
+		var data = {r: [], g: [], b: []};
+
+		this.each(function(px){
+			data.r.push(px.r);
+			data.g.push(px.g);
+			data.b.push(px.b);
+		});
+
+		return new ImageProcessing.Color(
+			Math.min.apply(null, data.r),
+			Math.min.apply(null, data.g),
+			Math.min.apply(null, data.b)
+		);
+	},
+
+	autoContrast: function(){
+		var self = this;
+
+		var _f = function(max, min){
+			if(max >= 255 && min <= 0)
+				return function(x){ return x; };
+
+			var a = 255 / (max - min);
+			var b = - a * min;
+
+			return function(x){
+				return a * x + b;
+			};
+		};
+
+		var max = this.max();
+		var min = this.min();
+
+		if(max.toString() == (new ImageProcessing.Color(255, 255, 255)).toString() &&
+		   min.toString() == (new ImageProcessing.Color(  0,   0,   0)).toString())
+			return this;
+
+		var f = {
+			r: _f(max.r, min.r),
+			g: _f(max.g, min.g),
+			b: _f(max.b, min.b)
+		};
+
+		this.each(function(px, x, y){
+			self.setPixel(x, y, new ImageProcessing.Color(f.r(px.r), f.g(px.g), f.b(px.b)));
+		});
+
+		return this;
 	},
 
 	filter: function(flt, offset){
@@ -472,7 +507,7 @@ ImageProcessing.prototype = {
 		ip.initPixelControl();
 		ip.lock();
 
-		ip.imageData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
+		ip.tmp.imageData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
 
 		for(var x = n; x < width; x++){
 			for(var y = n; y < height; y++){
@@ -493,7 +528,7 @@ ImageProcessing.prototype = {
 
 		this.support.pixel = false;
 		this.initPixelControl();
-		this.imageData = ip.imageData;
+		this.tmp.imageData = ip.tmp.imageData;
 		this.update();
 
 		if(supportPx){
