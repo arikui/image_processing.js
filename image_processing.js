@@ -6,6 +6,8 @@ var Color = function(r, g, b){
 }
 
 Color.prototype = {
+	constructor: Color,
+
 	toString: function(){
 		var c = [];
 
@@ -75,13 +77,18 @@ Color.prototype = {
 	},
 
 	threshold: function(r, g, b){
+		if(!!r && r.constructor == Color){
+			r = r.r;
+			g = r.g;
+			b = r.b;
+		}
+
 		if(!r && r != 0) r = 127;
 		if(!g && g != 0) g = r;
 		if(!b && b != 0) b = r;
 
-		var tc = new Color(r, g, b);
-
-		var c = new Color(0, 0, 0);
+		var tc = new Color(r, g, b); // threshold Color
+		var c  = new Color(0, 0, 0);
 
 		this.each(function(v, x){
 				c[x] = (v > tc[x])? 255 : 0;
@@ -492,49 +499,35 @@ ImageProcessing.prototype = {
 		if(!offset) offset = 0;
 
 		var supportPx = this.support.pixel;
-
 		var ip = new ImageProcessing(this.canvas.cloneNode(false));
+		var n  = parseInt(flt.length / 2);
+		var w  = this.canvas.width - n;
+		var h  = this.canvas.height - n;
+		var fl = flt.length;
 
-		var n = parseInt(flt.length / 2);
-		var width  = this.canvas.width - n;
-		var height = this.canvas.height - n;
-		var length = flt.length;
+		for(var x = n; x < w; x++){
+			for(var y = n; y < h; y++){
+				var c = new ImageProcessing.Color(offset, offset, offset);
 
-		var c = new ImageProcessing.Color(offset, offset, offset);
-		var p = null;
-
-		ip.support.pixel = false;
-		ip.initPixelControl();
-		ip.lock();
-
-		ip.tmp.imageData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
-
-		for(var x = n; x < width; x++){
-			for(var y = n; y < height; y++){
-
-				for(var fx = 0; fx < length; fx++){
-					for(var fy = 0; fy < length; fy++){
-						p = this.getPixel(x + fx - n, y + fy - n);
-						c.r += p.r * flt[fy][fx];
-						c.g += p.g * flt[fy][fx];
-						c.b += p.b * flt[fy][fx];
+				// filtering
+				for(var fx = 0; fx < fl; fx++){
+					for(var fy = 0; fy < fl; fy++){
+						var px = this.getPixel(x + fx - n, y + fy - n);
+						var fv = flt[fy][fx];
+						c.r += px.r * fv;
+						c.g += px.g * fv;
+						c.b += px.b * fv;
 					}
 				}
 
 				ip.setPixel(x, y, c);
-				c = new ImageProcessing.Color(offset, offset, offset)
 			}
 		}
 
+		this.tmp.imageData = ip.context.getImageData(0, 0, this.canvas.width, this.canvas.height)
 		this.support.pixel = false;
-		this.initPixelControl();
-		this.tmp.imageData = ip.tmp.imageData;
 		this.update();
-
-		if(supportPx){
-			this.support.pixel = true;
-			this.initPixelControl();
-		}
+		this.support.pixel = supportPx;
 
 		return this;
 	},
