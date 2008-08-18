@@ -1,3 +1,6 @@
+if(window.Image)
+	var Image = window.Image;
+
 (function(){
 var Color = function(r, g, b){
 	this.r = Math.round(r, 10);
@@ -144,10 +147,14 @@ Color.prototype = {
 /**
  * @s   string "#rrggbb"
  */
-Color.fromHex = function(s){
+Color.fromHexString = function(s){
 	var color = parseInt(s.substr(1), 16);
 	return new Color(color >> 16, color >> 8 & 255, color & 255);
 };
+
+Color.fromHex = function(h){
+	return new Color(h >> 16, h >> 8 & 255, h & 255);
+}
 
 /**
  * @c   0 - 255
@@ -310,7 +317,7 @@ ImageProcessing.prototype = {
 		}
 		else{
 			ImageProcessing.prototype.getPixel = function(x, y){
-				return ImageProcessing.Color.fromHex(this.gContext.getPixel(x, y));
+				return ImageProcessing.Color.fromHexString(this.gContext.getPixel(x, y));
 			};
 
 			ImageProcessing.prototype.setPixel = function(x, y, pixel){
@@ -329,7 +336,7 @@ ImageProcessing.prototype = {
 	},
 
 	getPixel: function(x, y){
-		return ImageProcessing.Color.fromHex(this.gContext.getPixel(x, y));
+		return ImageProcessing.Color.fromHexString(this.gContext.getPixel(x, y));
 	},
 
 	setPixel: function(x, y, pixel){
@@ -528,6 +535,36 @@ ImageProcessing.prototype = {
 		this.support.pixel = false;
 		this.update();
 		this.support.pixel = supportPx;
+
+		return this;
+	},
+
+	medianFilter: function(){
+		var self = this;
+
+		var median = function(x, y){
+			var coords = [
+				[x-1, y-1], [x, y-1], [x+1, y-1],
+				[x-1, y  ],           [x+1, y  ],
+				[x-1, y+1], [x, y+1], [x+1, y+1]
+			];
+
+			coords.forEach(function(c, i){
+				c.toString = function(){
+					return self.getPixel(c[0], c[1]).average().r;
+				};
+			});
+
+			coords.sort();
+
+			return self.getPixel(coords[4][0], coords[4][1]);
+		};
+
+		for(var x = 1, w = this.canvas.width - 1; x < w; x++){
+			for(var y = 1, h = this.canvas.height - 1; y < h; y++){
+				this.setPixel(x, y, median(x, y));
+			}
+		}
 
 		return this;
 	},
