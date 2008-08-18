@@ -609,6 +609,9 @@ ImageProcessing.prototype = {
 			}
 		}
 
+		if(this.locked)
+			this.lock();
+
 		return this;
 	},
 
