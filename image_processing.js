@@ -47,7 +47,7 @@ Color.prototype = {
 		return this;
 	},
 
-	map: function(){
+	map: function(f){
 		return [f(this.r, "r", this), (this.g, "g", this), f(this.b, "b", this)];
 	},
 
@@ -56,11 +56,11 @@ Color.prototype = {
 	},
 
 	max: function(){
-		return Math.max.apply(null, [this.r, this.g, this.b]);
+		return Math.max(this.r, this.g, this.b);
 	},
 
 	min: function(){
-		return Math.min.apply(null, [this.r, this.g, this.b]);
+		return Math.min(this.r, this.g, this.b);
 	},
 
 	average: function(){
@@ -206,7 +206,6 @@ Color.fromYcc = function(y, c1, c2){
 };
 
 ImageProcessing.Color = Color;
-ImageProcessing.prototype.Color = Color;
 })();
 
 
@@ -233,6 +232,13 @@ ImageProcessing.load = function(src){
 
 ImageProcessing.prototype = {
 	locked: false,
+
+	origin: {
+		process: null,
+		x: null,
+		y: null,
+	},
+
 	tmp: {
 		imageData: null,
 		imageData1: {
@@ -273,6 +279,9 @@ ImageProcessing.prototype = {
 		return this;
 	},
 
+	/**
+	 * load by image source
+	 */
 	load: function(src){
 		var img = new Image();
 		img.src = src;
@@ -281,10 +290,18 @@ ImageProcessing.prototype = {
 		return this;
 	},
 
+	/**
+	 * clone ImageProcessing object
+	 */
 	clone: function(){
 		return ImageProcessing.load(this.data());
 	},
 
+	/**
+	 * initialize pixelControl functions by this.support
+     * this.support.pixel == true : use setPixel/putPixel
+     * this.support.pixel == false: use ImageData functions
+	 */
 	initPixelControl: function(){
 		if(!this.support.pixel){
 			ImageProcessing.prototype.getPixel = function(x, y){
@@ -295,7 +312,7 @@ ImageProcessing.prototype = {
 					return new ImageProcessing.Color(data[n++], data[n++], data[n]);
 				}
 
-				var px = this.context.getImageData(x, y, 1, 1).data;
+				var px = this.getImageData(x, y, 1, 1).data;
 				return new ImageProcessing.Color(px[0], px[1], px[2]);
 			};
 
@@ -312,7 +329,7 @@ ImageProcessing.prototype = {
 				}
 
 				this.tmp.imageData1.data = [pixel.r, pixel.g, pixel.b, 255];
-				this.context.putImageData(this.tmp.imageData1, x, y);
+				this.putImageData(this.tmp.imageData1, x, y);
 			};
 		}
 		else{
@@ -344,13 +361,16 @@ ImageProcessing.prototype = {
 		return this;
 	},
 
+	/**
+	 * lock canvas update
+	 */
 	lock: function(){
 		this.locked = true;
 
 		if(this.support.pixel)
 			this.gContext.lockCanvasUpdates(this.locked);
 		else
-			this.tmp.imageData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
+			this.tmp.imageData = this.getImageData(0, 0, this.canvas.width, this.canvas.height);
 
 		return this;
 	},
@@ -364,11 +384,14 @@ ImageProcessing.prototype = {
 		return this;
 	},
 
+	/**
+	 * update canvas image
+	 */
 	update: function(){
 		if(this.support.pixel)
 			this.gContext.updateCanvas();
 		else
-			this.context.putImageData(this.tmp.imageData, 0, 0);
+			this.putImageData(this.tmp.imageData, 0, 0);
 
 		return this;
 	},
@@ -389,6 +412,44 @@ ImageProcessing.prototype = {
 				a.push(f(this.getPixel(x, y), x, y, this));
 
 		return a;
+	},
+
+	getImageData: function(from_x, from_y, width, height){
+		return this.context.getImageData(from_x, from_y, width, height);
+	},
+
+	putImageData: function(imageData, x, y){
+		this.context.putImageData(imageData, x, y);
+		return this;
+	},
+
+	clip: function(x, y, width, height){
+		var canvas    = document.createElement("canvas");
+		var ip        = new ImageProcessing(canvas);
+		var imageData = this.getImageData(x, y, width, height);
+
+		canvas.width  = imageData.width;
+		canvas.height = imageData.height;
+
+		ip.origin.process = this;
+		ip.origin.x = x;
+		ip.origin.y = y;
+
+		ip.putImageData(imageData, 0, 0);
+
+		return ip;
+	},
+
+	merge: function(process, x, y){
+		if(typeof x == "undefined")
+			var x = process.origin.x;
+		if(typeof y == "undefined")
+			var y = process.origin.y;
+
+		var imageData = process.getImageData(0, 0, process.canvas.width, process.canvas.height);
+		this.putImageData(imageData, x, y);
+
+		return this;
 	},
 
 	average: function(from_x, from_y, to_x, to_y){
@@ -531,7 +592,7 @@ ImageProcessing.prototype = {
 			}
 		}
 
-		this.tmp.imageData = ip.context.getImageData(0, 0, this.canvas.width, this.canvas.height)
+		this.tmp.imageData = ip.getImageData(0, 0, this.canvas.width, this.canvas.height)
 		this.support.pixel = false;
 		this.update();
 		this.support.pixel = supportPx;
@@ -551,7 +612,7 @@ ImageProcessing.prototype = {
 
 			coords.forEach(function(c, i){
 				c.toString = function(){
-					return self.getPixel(c[0], c[1]).average().r;
+					return self.getPixel(c[0], c[1]).average();
 				};
 			});
 
@@ -559,6 +620,24 @@ ImageProcessing.prototype = {
 
 			return self.getPixel(coords[4][0], coords[4][1]);
 		};
+
+		var supportPx = this.support.pixel;
+		var ip = new ImageProcessing(this.canvas.cloneNode(false));
+		var w  = this.canvas.width - 1;
+		var h  = this.canvas.height - 1;
+
+		for(var x = 1; x < w; x++){
+			for(var y = 1; y < h; y++){
+				ip.setPixel(x, y, median(x, y));
+			}
+		}
+
+		this.tmp.imageData = ip.getImageData(0, 0, this.canvas.width, this.canvas.height)
+		this.support.pixel = false;
+		this.update();
+		this.support.pixel = supportPx;
+
+		return this;
 
 		for(var x = 1, w = this.canvas.width - 1; x < w; x++){
 			for(var y = 1, h = this.canvas.height - 1; y < h; y++){
