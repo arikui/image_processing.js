@@ -452,18 +452,18 @@ ImageProcessing.prototype = {
 		return this;
 	},
 
-	average: function(from_x, from_y, to_x, to_y){
+	average: function(from_x, from_y, width, height){
 		if(!from_x) from_x = 0;
 		if(!from_y) from_y = 0;
-		if(!to_x)   to_x   = this.canvas.width;
-		if(!to_y)   to_y   = this.canvas.height;
+		if(!width)  width  = this.canvas.width;
+		if(!height) height = this.canvas.height;
 
-		var _color;
+		var pixel_n = width * height;
 		var color = new ImageProcessing.Color(0, 0, 0);
-		var pixel_n = (to_x - from_x) * (to_y - from_y);
+		var _color;
 
-		for(var x = from_x; x < to_x; x++){
-			for(var y = from_y; y < to_y; y++){
+		for(var x = from_x, w = from_x + width; x < w; x++){
+			for(var y = from_y, h = from_y + height; y < h; y++){
 				_color = this.getPixel(x, y);
 				color.r += _color.r;
 				color.g += _color.g;
@@ -675,15 +675,15 @@ ImageProcessing.prototype = {
 	mosaic: function(size_w, size_h){
 		if(!size_h) size_h = size_w;
 
-		var to_x, to_y;
+		var sw, sh;
 
 		for(var x = 0, w = this.canvas.width; x < w; x += size_w){
-			to_x = (x + size_w >= this.canvas.width) ? this.canvas.width  - 1 : x + size_w;
+			sw = (x + size_w >= this.canvas.width) ? this.canvas.width  - 1 - x : size_w;
 
 			for(var y = 0, h = this.canvas.height; y < h; y += size_h){
-				to_y = (y + size_h >= this.canvas.height)? this.canvas.height - 1 : y + size_h;
+				sh = (y + size_h >= this.canvas.height)? this.canvas.height - 1 - y : size_h;
 
-				this.context.fillStyle = this.average(x, y, to_x, to_y).toString();
+				this.context.fillStyle = this.average(x, y, sw, sh).toString();
 				this.context.fillRect(x, y, size_w, size_h);
 			}
 		}
