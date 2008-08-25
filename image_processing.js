@@ -780,6 +780,7 @@ ImageProcessing.prototype = {
 
 		tmp.forEach(function(_, y){
 			_.forEach(function(v, x){
+				v = (v > 127)? 255 : 0;
 				self.setPixel(x, y, new ImageProcessing.Color(v, v, v));
 			});
 		});
