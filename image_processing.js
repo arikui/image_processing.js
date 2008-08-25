@@ -3,24 +3,17 @@ if(window.Image)
 
 (function(){
 var Color = function(r, g, b){
-	this.r = Math.round(r, 10);
-	this.g = Math.round(g, 10);
-	this.b = Math.round(b, 10);
+	this.r = parseInt(r, 10);
+	this.g = parseInt(g, 10);
+	this.b = parseInt(b, 10);
 }
 
 Color.prototype = {
 	constructor: Color,
 
 	toString: function(){
-		var c = [];
-
-		this.each(function(v, x){
-				c.push((v > 255)? 255
-				      :(v <   0)? 0
-				      : Math.round(v));
-		});
-
-		return "rgb(" + c + ")";
+		var c = this.round();
+		return "rgb(" + [c.r, c.g, c.b] + ")";
 	},
 
 	valueOf: function(){
@@ -48,7 +41,11 @@ Color.prototype = {
 	},
 
 	map: function(f){
-		return [f(this.r, "r", this), (this.g, "g", this), f(this.b, "b", this)];
+		return [
+			f(this.r, "r", this),
+			f(this.g, "g", this),
+			f(this.b, "b", this)
+		];
 	},
 
 	clone: function(){
