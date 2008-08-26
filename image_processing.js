@@ -665,7 +665,7 @@ ImageProcessing.prototype = {
 	},
 
 	threshold: function(v){
-		this.each(function(px, x, y, self){
+		return this.each(function(px, x, y, self){
 			var p = px.average();
 			var c = (p <  v)? 0 : 255;
 			self.setPixel(x, y, ImageProcessing.Color.fromRgb(c, c, c));
