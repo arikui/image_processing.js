@@ -149,9 +149,16 @@ Color.fromHexString = function(s){
 	return new Color(color >> 16, color >> 8 & 255, color & 255);
 };
 
+/**
+ * @h   0xrrggbb
+ */
 Color.fromHex = function(h){
 	return new Color(h >> 16, h >> 8 & 255, h & 255);
-}
+};
+
+Color.fromRgb = function(r, g, b){
+	return new Color(r, g, b);
+};
 
 /**
  * @c   0 - 255
@@ -180,12 +187,12 @@ Color.fromHsv = function(h, s, v){
 	var t3 = Math.round((255 - (255 - d) / 360 * s) / 255 * v);
 
 	switch(Math.round(ht / 360)){
-		case 0 : return new Color(v, t3, t1);
-		case 1 : return new Color(t2, v, t1);
-		case 2 : return new Color(t1, v, t3);
-		case 3 : return new Color(t1, t2, v);
-		case 4 : return new Color(t3, t1, v);
-		default: return new Color(v, t1, t2);
+		case 0 : return new Color( v, t3, t1);
+		case 1 : return new Color(t2,  v, t1);
+		case 2 : return new Color(t1,  v, t3);
+		case 3 : return new Color(t1, t2,  v);
+		case 4 : return new Color(t3, t1,  v);
+		default: return new Color( v, t1, t2);
 	}
 };
 
@@ -203,6 +210,9 @@ Color.fromYcc = function(y, c1, c2){
 };
 
 ImageProcessing.Color = Color;
+ImageProcessing.prototype.Color = function(r, g, b){
+	return new Color(r, g, b);
+};
 })();
 
 
@@ -292,54 +302,6 @@ ImageProcessing.prototype = {
 	 */
 	clone: function(){
 		return ImageProcessing.load(this.data());
-	},
-
-	/**
-	 * initialize pixelControl functions by this.support
-     * this.support.pixel == true : use setPixel/putPixel
-     * this.support.pixel == false: use ImageData functions
-	 */
-	initPixelControl: function(){
-		if(!this.support.pixel){
-			ImageProcessing.prototype.getPixel = function(x, y){
-				if(this.locked){
-					var data = this.tmp.imageData.data;
-					var n = x * 4 + y * this.canvas.width * 4;
-
-					return new ImageProcessing.Color(data[n++], data[n++], data[n]);
-				}
-
-				var px = this.getImageData(x, y, 1, 1).data;
-				return new ImageProcessing.Color(px[0], px[1], px[2]);
-			};
-
-			ImageProcessing.prototype.setPixel = function(x, y, pixel){
-				pixel = pixel.round();
-
-				if(this.locked){
-					var n = x * 4 + y * this.canvas.width * 4;
-					this.tmp.imageData.data[n++] = pixel.r;
-					this.tmp.imageData.data[n++] = pixel.g;
-					this.tmp.imageData.data[n  ] = pixel.b;
-
-					return;
-				}
-
-				this.tmp.imageData1.data = [pixel.r, pixel.g, pixel.b, 255];
-				this.putImageData(this.tmp.imageData1, x, y);
-			};
-		}
-		else{
-			ImageProcessing.prototype.getPixel = function(x, y){
-				return ImageProcessing.Color.fromHexString(this.gContext.getPixel(x, y));
-			};
-
-			ImageProcessing.prototype.setPixel = function(x, y, pixel){
-				this.gContext.setPixel(x, y, pixel.toString());
-			};
-		}
-
-		return this;
 	},
 
 	/**
@@ -702,6 +664,14 @@ ImageProcessing.prototype = {
 		return this;
 	},
 
+	threshold: function(v){
+		this.each(function(px, x, y, self){
+			var p = px.average();
+			var c = (p <  v)? 0 : 255;
+			self.setPixel(x, y, ImageProcessing.Color.fromRgb(c, c, c));
+		});
+	},
+
 	dither: function(pattern){
 		var self = this;
 		var black = new ImageProcessing.Color(0, 0, 0);
@@ -783,6 +753,64 @@ ImageProcessing.prototype = {
 		});
 
 		return this;
+	}
+};
+
+/**
+ * initialize pixelControl functions by this.support
+ * this.support.pixel == true : use setPixel/putPixel
+ * this.support.pixel == false: use ImageData functions
+ */
+ImageProcessing.prototype.initPixelControl = function(){
+	if(!this.support.pixel){
+		ImageProcessing.prototype.getPixel = this.initPixelControl.imageData.getPixel;
+		ImageProcessing.prototype.setPixel = this.initPixelControl.imageData.setPixel;
+	}
+	else{
+		ImageProcessing.prototype.getPixel = this.initPixelControl.pixel.getPixel;
+		ImageProcessing.prototype.setPixel = this.initPixelControl.pixel.setPixel;
+	}
+
+	return this;
+};
+
+ImageProcessing.prototype.initPixelControl.imageData = {
+	getPixel: function(x, y){
+		if(this.locked){
+			var data = this.tmp.imageData.data;
+			var n = x * 4 + y * this.canvas.width * 4;
+
+			return new ImageProcessing.Color(data[n++], data[n++], data[n]);
+		}
+
+		var px = this.getImageData(x, y, 1, 1).data;
+		return new ImageProcessing.Color(px[0], px[1], px[2]);
+	},
+
+	setPixel: function(x, y, pixel){
+		pixel = pixel.round();
+
+		if(this.locked){
+			var n = x * 4 + y * this.canvas.width * 4;
+			this.tmp.imageData.data[n++] = pixel.r;
+			this.tmp.imageData.data[n++] = pixel.g;
+			this.tmp.imageData.data[n  ] = pixel.b;
+
+			return;
+		}
+
+		this.tmp.imageData1.data = [pixel.r, pixel.g, pixel.b, 255];
+		this.putImageData(this.tmp.imageData1, x, y);
+	}
+};
+
+ImageProcessing.prototype.initPixelControl.pixel = {
+	getPixel: function(x, y){
+		return ImageProcessing.Color.fromHexString(this.gContext.getPixel(x, y));
+	},
+
+	setPixel: function(x, y, pixel){
+		this.gContext.setPixel(x, y, pixel.toString());
 	}
 };
 
