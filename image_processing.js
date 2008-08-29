@@ -247,7 +247,9 @@ ImageProcessing.prototype = {
 	},
 
 	tmp: {
+		// All
 		imageData: null,
+		// 1 * 1
 		imageData1: {
 			width : 1,
 			height: 1,
@@ -261,6 +263,22 @@ ImageProcessing.prototype = {
 	init: function(element){
 		if(element) this.canvas = element;
 		this.context = this.canvas.getContext("2d");
+
+		// init properties
+		this.origin = {
+			process: null,
+			x: null,
+			y: null,
+		};
+
+		this.tmp = {
+			imageData : null,
+			imageData1: {
+				width : 1,
+				height: 1,
+				data  : [0, 0, 0, 255]
+			}
+		};
 
 		// set browser support
 		if(!ImageProcessing.support){
@@ -329,7 +347,7 @@ ImageProcessing.prototype = {
 		if(this.support.pixel)
 			this.gContext.lockCanvasUpdates(this.locked);
 		else
-			this.tmp.imageData = this.getImageData(0, 0, this.canvas.width, this.canvas.height);
+			this.tmp.imageData = this.getImageData();
 
 		return this;
 	},
@@ -374,11 +392,22 @@ ImageProcessing.prototype = {
 	},
 
 	getImageData: function(from_x, from_y, width, height){
-		return this.context.getImageData(from_x, from_y, width, height);
+		if(!from_x) from_x = 0;
+		if(!from_y) from_y = 0;
+		if(!width)  width  = this.canvas.width;
+		if(!height) height = this.canvas.height;
+
+		var imageData = this.context.getImageData(from_x, from_y, width, height);
+
+		return imageData;
 	},
 
 	putImageData: function(imageData, x, y){
+		if(!x) x = 0;
+		if(!y) y = 0;
+
 		this.context.putImageData(imageData, x, y);
+
 		return this;
 	},
 
@@ -551,7 +580,7 @@ ImageProcessing.prototype = {
 			}
 		}
 
-		this.tmp.imageData = ip.getImageData(0, 0, this.canvas.width, this.canvas.height)
+		this.tmp.imageData = this.getImageData(0, 0, this.canvas.width, this.canvas.height);
 		this.support.pixel = false;
 		this.update();
 		this.support.pixel = supportPx;
@@ -591,7 +620,7 @@ ImageProcessing.prototype = {
 			}
 		}
 
-		this.tmp.imageData = ip.getImageData(0, 0, this.canvas.width, this.canvas.height)
+		this.tmp.imageData = this.getImageData(0, 0, this.canvas.width, this.canvas.height);
 		this.support.pixel = false;
 		this.update();
 		this.support.pixel = supportPx;
@@ -751,6 +780,44 @@ ImageProcessing.prototype = {
 				self.setPixel(x, y, new ImageProcessing.Color(v, v, v));
 			});
 		});
+
+		return this;
+	},
+
+	blueBack: function(process, aColor){
+		if(!aColor) aColor = ImageProcessing.Color.fromHex(0x0000ff);
+
+		var w = (this.canvas.width  < process.canvas.width) ? this.canvas.width  : process.canvas.width;
+		var h = (this.canvas.height < process.canvas.height)? this.canvas.height : process.canvas.height;
+
+		for(var x = 0; x < w; x++)
+			for(var y = 0; y < h; y++)
+				if(this.getPixel(x, y).toString() == aColor.toString())
+					this.setPixel(x, y, process.getPixel(x, y));
+
+		return this;
+	},
+
+	blend: function(process, alpha){
+		if(!alpha) alpha = 0.5;
+
+		var w = (this.canvas.width  < process.canvas.width) ? this.canvas.width  : process.canvas.width;
+		var h = (this.canvas.height < process.canvas.height)? this.canvas.height : process.canvas.height;
+
+		var cOrigin, cBlend;
+
+		for(var x = 0; x < w; x++){
+			for(var y = 0; y < h; y++){
+				cOrigin = this.getPixel(x, y);
+				cBlend  = process.getPixel(x, y);
+
+					cOrigin.r = cOrigin.r * (1 - alpha) + cBlend.r * alpha;
+					cOrigin.g = cOrigin.g * (1 - alpha) + cBlend.g * alpha;
+					cOrigin.b = cOrigin.b * (1 - alpha) + cBlend.b * alpha;
+
+				this.setPixel(x, y, cOrigin);
+			}
+		}
 
 		return this;
 	}
