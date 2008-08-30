@@ -580,7 +580,50 @@ ImageProcessing.prototype = {
 			}
 		}
 
-		this.tmp.imageData = this.getImageData(0, 0, this.canvas.width, this.canvas.height);
+		this.tmp.imageData = ip.getImageData(0, 0, this.canvas.width, this.canvas.height);
+		this.support.pixel = false;
+		this.update();
+		this.support.pixel = supportPx;
+
+		return this;
+	},
+
+	filter2: function(fltw, flth, offset){
+		if(!offset) offset = 0;
+
+		var supportPx = this.support.pixel;
+		var ip = new ImageProcessing(this.canvas.cloneNode(false));
+		var n  = parseInt(fltw.length / 2);
+		var w  = this.canvas.width - n;
+		var h  = this.canvas.height - n;
+		var fl = fltw.length;
+
+		for(var x = n; x < w; x++){
+			for(var y = n; y < h; y++){
+				var cw = new ImageProcessing.Color(offset, offset, offset);
+				var ch = new ImageProcessing.Color(offset, offset, offset);
+
+				// filtering
+				for(var fx = 0; fx < fl; fx++){
+					for(var fy = 0; fy < fl; fy++){
+						var px = this.getPixel(x + fx - n, y + fy - n);
+						var fvw = fltw[fy][fx];
+						var fvh = flth[fy][fx];
+						cw.r += px.r * fvw;
+						cw.g += px.g * fvw;
+						cw.b += px.b * fvw;
+						ch.r += px.r * fvh;
+						ch.g += px.g * fvh;
+						ch.b += px.b * fvh;
+					}
+				}
+
+				var c = new ImageProcessing.Color(Math.sqrt(cw.r * ch.r), Math.sqrt(cw.g * ch.g), Math.sqrt(cw.b * ch.b));
+				ip.setPixel(x, y, c);
+			}
+		}
+
+		this.tmp.imageData = ip.getImageData(0, 0, this.canvas.width, this.canvas.height);
 		this.support.pixel = false;
 		this.update();
 		this.support.pixel = supportPx;
@@ -720,6 +763,24 @@ ImageProcessing.prototype = {
 		return this;
 	},
 
+	dither8: function(pattern){
+		var self = this;
+		var l = pattern.length;
+		var n = 256 / (l * l);
+
+		var tmpPx = new ImageProcessing.Color(0, 0, 0);
+
+		this.each(function(px, x, y){
+			px.each(function(v, p, self){
+				self[p] = (v > pattern[x % l][y % l] * n + l * l / 2)? 255 : 0;
+			});
+
+			self.setPixel(x, y, px);
+		});
+
+		return this;
+	},
+
 	errorDiffuse: function(flt){
 		var self = this;
 
@@ -784,36 +845,89 @@ ImageProcessing.prototype = {
 		return this;
 	},
 
-	blueBack: function(process, aColor){
+	/**
+	 * @process  ImageProcessing        background image
+	 * @aColor   ImageProcessing.Color  alpha color
+	 * @rColor   ImageProcessing.Color  range color
+	 */
+	blueScreen: function(process, aColor, rColor){
 		if(!aColor) aColor = ImageProcessing.Color.fromHex(0x0000ff);
+		if(!rColor) rColor = ImageProcessing.Color.fromRgb(10, 10, 5);
 
 		var w = (this.canvas.width  < process.canvas.width) ? this.canvas.width  : process.canvas.width;
 		var h = (this.canvas.height < process.canvas.height)? this.canvas.height : process.canvas.height;
 
-		for(var x = 0; x < w; x++)
-			for(var y = 0; y < h; y++)
-				if(this.getPixel(x, y).toString() == aColor.toString())
-					this.setPixel(x, y, process.getPixel(x, y));
+		var black = ImageProcessing.Color.fromHex(0x000000);
+		var white = ImageProcessing.Color.fromHex(0xffffff);
+		var ip = (new ImageProcessing(this.canvas)).lock();
+
+		// threshold
+		this.each(function(px, x, y){
+			if(px.toString() == aColor.toString())
+				ip.setPixel(x, y, white);
+			else
+				ip.setPixel(x, y, black);
+		});
+
+		// blur
+		ip.filter(ImageProcessing.filter.blur);
+
+		// blend
+		for(var x = 0; x < w; x++){
+			for(var y = 0; y < h; y++){
+				var cOrigin = this.getPixel(x, y);
+				var cBlend  = process.getPixel(x, y);
+
+				if(cOrigin.toString() == aColor.toString()){
+					this.setPixel(x, y, cBlend);
+				}
+				else{
+					var alpha = ip.getPixel(x, y).r / 255;
+
+					cOrigin.each(function(v, p){
+						cOrigin[p] = (1 - alpha) * cOrigin[p] + alpha * cBlend[p];
+					});
+
+					this.setPixel(x, y, cOrigin);
+				}
+			}
+		}
 
 		return this;
 	},
 
-	blend: function(process, alpha){
+	/**
+	 * alias blueScreen
+	 */
+	blueBack: function(){
+		return this.blueScreen.apply(this, arguments);
+	},
+
+	/**
+	 * @process  ImageProcessing object
+	 * @alpha    Number (0 - 1)
+	 * @lx       left x
+	 * @ty       top y
+	 */
+	blend: function(process, alpha, lx, ty){
 		if(!alpha) alpha = 0.5;
+		if(!lx)    lx    = 0;
+		if(!ty)    ty    = 0;
 
-		var w = (this.canvas.width  < process.canvas.width) ? this.canvas.width  : process.canvas.width;
-		var h = (this.canvas.height < process.canvas.height)? this.canvas.height : process.canvas.height;
+		var lw = lx + process.canvas.width;
+		var th = ty + process.canvas.height;
+		var w = (this.canvas.width  < lx)? this.canvas.width  : lw;
+		var h = (this.canvas.height < th)? this.canvas.height : th;
 
-		var cOrigin, cBlend;
+		var px, cBlend;
 
-		for(var x = 0; x < w; x++){
-			for(var y = 0; y < h; y++){
-				cOrigin = this.getPixel(x, y);
-				cBlend  = process.getPixel(x, y);
+		for(var x = lx; x < w; x++){
+			for(var y = ty; y < h; y++){
+				cBlend = process.getPixel(x - lx, y - ty);
 
-					cOrigin.r = cOrigin.r * (1 - alpha) + cBlend.r * alpha;
-					cOrigin.g = cOrigin.g * (1 - alpha) + cBlend.g * alpha;
-					cOrigin.b = cOrigin.b * (1 - alpha) + cBlend.b * alpha;
+				px = this.getPixel(x, y).each(function(v, p, self){
+					self[p] = self[p] * (1 - alpha) + cBlend[p] * alpha;
+				});
 
 				this.setPixel(x, y, cOrigin);
 			}
@@ -939,6 +1053,26 @@ ImageProcessing.filter = {
 		[1,  1, 1],
 		[1, -8, 1],
 		[1,  1, 1]
+	]
+};
+
+ImageProcessing.filter2 = {
+	prewitt: [
+		[[-1,  0,  1],
+		 [-1,  0,  1],
+		 [-1,  0,  1]],
+		[[-1, -1, -1],
+		 [ 0,  0,  0],
+		 [ 1,  1,  1]]
+	],
+
+	sobel: [
+		[[-1,  0,  1],
+		 [-2,  0,  2],
+		 [-1,  0,  1]],
+		[[-1, -2, -1],
+		 [ 0,  0,  0],
+		 [ 1,  2,  1]]
 	]
 };
 
