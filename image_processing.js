@@ -852,7 +852,7 @@ ImageProcessing.prototype = {
 	 */
 	blueScreen: function(process, aColor, rColor){
 		if(!aColor) aColor = ImageProcessing.Color.fromHex(0x0000ff);
-		if(!rColor) rColor = ImageProcessing.Color.fromRgb(10, 10, 5);
+		if(!rColor) rColor = ImageProcessing.Color.fromRgb(0, 0, 0);
 
 		var w = (this.canvas.width  < process.canvas.width) ? this.canvas.width  : process.canvas.width;
 		var h = (this.canvas.height < process.canvas.height)? this.canvas.height : process.canvas.height;
@@ -865,12 +865,23 @@ ImageProcessing.prototype = {
 		this.each(function(px, x, y){
 			if(px.toString() == aColor.toString())
 				ip.setPixel(x, y, white);
-			else
-				ip.setPixel(x, y, black);
+			else{
+				var b = /false/.test(px.map(function(v, x){
+					return px[x] - rColor[x] < aColor && aColor < px[x] + rColor[x];
+				}));
+				if(!b)
+					ip.setPixel(x, y, white);
+				else
+					ip.setPixel(x, y, black);
+			}
 		});
 
 		// blur
-		ip.filter(ImageProcessing.filter.blur);
+		ip.filter([
+			[0.15, 0.15, 0.15],
+			[0.15, 0, 0.15],
+			[0.15, 0.15, 0.15],
+		]);
 
 		// blend
 		for(var x = 0; x < w; x++){
@@ -882,7 +893,7 @@ ImageProcessing.prototype = {
 					this.setPixel(x, y, cBlend);
 				}
 				else{
-					var alpha = ip.getPixel(x, y).r / 255;
+					var alpha = ip.getPixel(x, y).average() / 255;
 
 					cOrigin.each(function(v, p){
 						cOrigin[p] = (1 - alpha) * cOrigin[p] + alpha * cBlend[p];
@@ -901,6 +912,48 @@ ImageProcessing.prototype = {
 	 */
 	blueBack: function(){
 		return this.blueScreen.apply(this, arguments);
+	},
+
+	/**
+	 * @process  ImageProcessing        background image
+	 * @aColor   ImageProcessing.Color  alpha color
+	 * @soft     Boolean                use soft key
+	 */
+	chromaKey: function(process, aColor, soft){
+		if(!aColor) aColor = ImageProcessing.Color.fromHex(0x0000ff);
+		if(typeof soft == "undefined") soft = true;
+
+		var w = (this.canvas.width  < process.canvas.width) ? this.canvas.width  : process.canvas.width;
+		var h = (this.canvas.height < process.canvas.height)? this.canvas.height : process.canvas.height;
+
+		var black = ImageProcessing.Color.fromHex(0x000000);
+		var white = ImageProcessing.Color.fromHex(0xffffff);
+		var ip = (new ImageProcessing(this.canvas)).lock();
+
+		// blend
+		for(var x = 0; x < w; x++){
+			for(var y = 0; y < h; y++){
+				var cOrigin = this.getPixel(x, y);
+				var cBlend  = process.getPixel(x, y);
+
+				if(cOrigin.toString() == aColor.toString()){
+					this.setPixel(x, y, cBlend);
+				}
+				else if(soft){
+					var alpha = (new ImageProcessing.Color).each(function(v, x, self){
+						self[x] = Math.abs(cOrigin[x] - aColor[x]);
+					}).geomean() / 255;
+
+					cOrigin.each(function(v, p){
+						cOrigin[p] = alpha * cOrigin[p] + (1 - alpha) * cBlend[p];
+					});
+
+					this.setPixel(x, y, cOrigin);
+				}
+			}
+		}
+
+		return this;
 	},
 
 	/**
