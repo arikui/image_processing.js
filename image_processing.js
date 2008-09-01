@@ -919,17 +919,15 @@ ImageProcessing.prototype = {
 		var w = (this.canvas.width  < lx)? this.canvas.width  : lw;
 		var h = (this.canvas.height < th)? this.canvas.height : th;
 
-		var px, cBlend;
-
 		for(var x = lx; x < w; x++){
 			for(var y = ty; y < h; y++){
-				cBlend = process.getPixel(x - lx, y - ty);
+				var cBlend = process.getPixel(x - lx, y - ty);
 
-				px = this.getPixel(x, y).each(function(v, p, self){
+				var px = this.getPixel(x, y).each(function(v, p, self){
 					self[p] = self[p] * (1 - alpha) + cBlend[p] * alpha;
 				});
 
-				this.setPixel(x, y, cOrigin);
+				this.setPixel(x, y, px);
 			}
 		}
 
