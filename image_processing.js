@@ -959,16 +959,12 @@ ImageProcessing.prototype = {
 	/**
 	 * @process  ImageProcessing object
 	 * @alpha    Number (0 - 1)
-	 * @lx       left x
-	 * @ty       top y
 	 */
-	blend: function(process, alpha, lx, ty){
+	blend: function(process, alpha){
 		if(!alpha) alpha = 0.5;
-		if(!lx)    lx    = 0;
-		if(!ty)    ty    = 0;
 
-		var lw = lx + process.canvas.width;
-		var th = ty + process.canvas.height;
+		var lw = process.canvas.width;
+		var th = process.canvas.height;
 		var w = (this.canvas.width  < lx)? this.canvas.width  : lw;
 		var h = (this.canvas.height < th)? this.canvas.height : th;
 
