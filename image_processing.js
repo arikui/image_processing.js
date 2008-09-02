@@ -968,9 +968,9 @@ ImageProcessing.prototype = {
 		var w = (this.canvas.width  < lx)? this.canvas.width  : lw;
 		var h = (this.canvas.height < th)? this.canvas.height : th;
 
-		for(var x = lx; x < w; x++){
-			for(var y = ty; y < h; y++){
-				var cBlend = process.getPixel(x - lx, y - ty);
+		for(var x = 0; x < w; x++){
+			for(var y = 0; y < h; y++){
+				var cBlend = process.getPixel(x, y);
 
 				var px = this.getPixel(x, y).each(function(v, p, self){
 					self[p] = self[p] * (1 - alpha) + cBlend[p] * alpha;
