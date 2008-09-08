@@ -2,6 +2,11 @@ if(window.Image)
 	var Image = window.Image;
 
 (function(){
+/**
+ * @r  red   (0 - 255)
+ * @g  gleen (0 - 255)
+ * @b  blue  (0 - 255)
+ */
 var Color = function(r, g, b){
 	this.r = parseInt(r, 10);
 	this.g = parseInt(g, 10);
@@ -141,6 +146,33 @@ Color.prototype = {
 	}
 };
 
+Color.fromRgb = function(r, g, b){
+	return new Color(r, g, b);
+};
+
+/**
+ * @s  "rgb(r,g,b)"
+ */
+Color.fromRgbString = function(s){
+	var r = /\d{1,3}/g;
+	return new Color(r.exec(s), r.exec(s), r.exec(s));
+};
+
+/**
+ * @s  "rgba(r,g,b,a)"
+ */
+Color.fromRgbaString = function(s){
+	var r = /\d{1,3}/g;
+	var c = new Color(r.exec(s), r.exec(s), r.exec(s));
+
+	c.a = parseFloat(/1|0.\d+|0/.exec(s.split(",")[3]));
+
+	if(isNaN(c.a))
+		c.a = 1;
+
+	return c;
+};
+
 /**
  * @s   string "#rrggbb"
  */
@@ -154,10 +186,6 @@ Color.fromHexString = function(s){
  */
 Color.fromHex = function(h){
 	return new Color(h >> 16, h >> 8 & 255, h & 255);
-};
-
-Color.fromRgb = function(r, g, b){
-	return new Color(r, g, b);
 };
 
 /**
@@ -289,7 +317,7 @@ ImageProcessing.prototype = {
 
 			try{
 				this.gContext = this.canvas.getContext("opera-2dgame");
-				this.support.pixel = true;
+				this.support.pixel = !!this.gContext;
 			}
 			catch(e){}
 
@@ -320,6 +348,11 @@ ImageProcessing.prototype = {
 	 */
 	clone: function(){
 		return ImageProcessing.load(this.data());
+	},
+
+	appendTo: function(element){
+		element.appendChild(this.canvas);
+		return this;
 	},
 
 	/**
@@ -852,6 +885,9 @@ ImageProcessing.prototype = {
 	 */
 	blueScreen: function(process, aColor, rColor){
 		if(!aColor) aColor = ImageProcessing.Color.fromHex(0x0000ff);
+
+		if(rColor instanceof Number) rColor = ImageProcessing.Color.fromRgb(rColor, rColor, rColor);
+		if(rColor instanceof Array)  rColor = ImageProcessing.Color.fromRgb,apply(null, rColor);
 		if(!rColor) rColor = ImageProcessing.Color.fromRgb(0, 0, 0);
 
 		var w = (this.canvas.width  < process.canvas.width) ? this.canvas.width  : process.canvas.width;
@@ -867,7 +903,7 @@ ImageProcessing.prototype = {
 				ip.setPixel(x, y, white);
 			else{
 				var b = /false/.test(px.map(function(v, x){
-					return px[x] - rColor[x] < aColor && aColor < px[x] + rColor[x];
+					return aColor[x] - rColor[x] < px[x] && px[x] < aColor[x] + rColor[x];
 				}));
 				if(!b)
 					ip.setPixel(x, y, white);
@@ -940,9 +976,11 @@ ImageProcessing.prototype = {
 					this.setPixel(x, y, cBlend);
 				}
 				else if(soft){
-					var alpha = (new ImageProcessing.Color).each(function(v, x, self){
+					var alpha = 8 * (ImageProcessing.Color.fromHex(0)).each(function(v, x, self){
 						self[x] = Math.abs(cOrigin[x] - aColor[x]);
 					}).geomean() / 255;
+
+					alpha = (alpha > 1) ? 1 : (alpha < 0)? 0 : alpha;
 
 					cOrigin.each(function(v, p){
 						cOrigin[p] = alpha * cOrigin[p] + (1 - alpha) * cBlend[p];
@@ -1016,6 +1054,7 @@ ImageProcessing.prototype.initPixelControl.imageData = {
 		}
 
 		var px = this.getImageData(x, y, 1, 1).data;
+
 		return new ImageProcessing.Color(px[0], px[1], px[2]);
 	},
 
@@ -1026,13 +1065,16 @@ ImageProcessing.prototype.initPixelControl.imageData = {
 			var n = x * 4 + y * this.canvas.width * 4;
 			this.tmp.imageData.data[n++] = pixel.r;
 			this.tmp.imageData.data[n++] = pixel.g;
-			this.tmp.imageData.data[n  ] = pixel.b;
+			this.tmp.imageData.data[n++] = pixel.b;
+			this.tmp.imageData.data[n  ] = 255;     // alpha
 
-			return;
+			return this;
 		}
 
 		this.tmp.imageData1.data = [pixel.r, pixel.g, pixel.b, 255];
 		this.putImageData(this.tmp.imageData1, x, y);
+
+		return this;
 	}
 };
 
@@ -1043,6 +1085,7 @@ ImageProcessing.prototype.initPixelControl.pixel = {
 
 	setPixel: function(x, y, pixel){
 		this.gContext.setPixel(x, y, pixel.toString());
+		return this;
 	}
 };
 
