@@ -407,8 +407,8 @@ ImageProcessing.prototype = {
 	},
 
 	each: function(f){
-		for(var x = 0, w = this.canvas.width; x < w; x++)
-			for(var y = 0, h = this.canvas.height; y < h; y++)
+		for(var y = 0, h = this.canvas.height; y < h; y++)
+			for(var x = 0, w = this.canvas.width; x < w; x++)
 				f(this.getPixel(x, y), x, y, this);
 
 		return this;
