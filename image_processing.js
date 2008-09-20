@@ -8,7 +8,7 @@ if(window.Image)
  * @b  blue  (0 - 255)
  */
 var Color = function(r, g, b, a){
-	if(!a) a = 1;
+	if(!a || a != 0) a = 1;
 
 	this.r = parseInt(r, 10);
 	this.g = parseInt(g, 10);
