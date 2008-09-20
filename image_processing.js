@@ -7,10 +7,13 @@ if(window.Image)
  * @g  gleen (0 - 255)
  * @b  blue  (0 - 255)
  */
-var Color = function(r, g, b){
+var Color = function(r, g, b, a){
+	if(!a) a = 1;
+
 	this.r = parseInt(r, 10);
 	this.g = parseInt(g, 10);
 	this.b = parseInt(b, 10);
+	this.a = parseFloat(a);
 }
 
 Color.prototype = {
@@ -18,6 +21,10 @@ Color.prototype = {
 
 	toString: function(){
 		var c = this.round();
+
+		if(c.a != 1)
+			return "rgba(" + [c.r, c.g, c.b, c.a] + ")";
+
 		return "rgb(" + [c.r, c.g, c.b] + ")";
 	},
 
@@ -33,6 +40,10 @@ Color.prototype = {
 				      :(v <   0)? 0
 				      :Math.round(v);
 		});
+
+		c.a = (this.a > 1) ? 1
+		     :(this.a < 0) ? 0
+		     : this.a;
 
 		return c;
 	},
@@ -54,7 +65,7 @@ Color.prototype = {
 	},
 
 	clone: function(){
-		return new Color(this.r, this.g, this.b);
+		return new Color(this.r, this.g, this.b, this.a);
 	},
 
 	max: function(){
@@ -96,7 +107,7 @@ Color.prototype = {
 		var c  = new Color(0, 0, 0);
 
 		this.each(function(v, x){
-				c[x] = (v > tc[x])? 255 : 0;
+			c[x] = (v > tc[x])? 255 : 0;
 		});
 
 		return c;
@@ -148,6 +159,10 @@ Color.prototype = {
 
 Color.fromRgb = function(r, g, b){
 	return new Color(r, g, b);
+};
+
+Color.fromRgba = function(r, g, b, a){
+	return new Color(r, g, b, a);
 };
 
 /**
@@ -1050,12 +1065,12 @@ ImageProcessing.prototype.initPixelControl.imageData = {
 			var data = this.tmp.imageData.data;
 			var n = x * 4 + y * this.canvas.width * 4;
 
-			return new ImageProcessing.Color(data[n++], data[n++], data[n]);
+			return new ImageProcessing.Color(data[n++], data[n++], data[n++], data[n] / 255);
 		}
 
 		var px = this.getImageData(x, y, 1, 1).data;
 
-		return new ImageProcessing.Color(px[0], px[1], px[2]);
+		return new ImageProcessing.Color(px[0], px[1], px[2], px[3] / 255);
 	},
 
 	setPixel: function(x, y, pixel){
@@ -1066,12 +1081,12 @@ ImageProcessing.prototype.initPixelControl.imageData = {
 			this.tmp.imageData.data[n++] = pixel.r;
 			this.tmp.imageData.data[n++] = pixel.g;
 			this.tmp.imageData.data[n++] = pixel.b;
-			this.tmp.imageData.data[n  ] = 255;     // alpha
+			this.tmp.imageData.data[n  ] = pixel.a * 255;
 
 			return this;
 		}
 
-		this.tmp.imageData1.data = [pixel.r, pixel.g, pixel.b, 255];
+		this.tmp.imageData1.data = [pixel.r, pixel.g, pixel.b, pixel.a * 255];
 		this.putImageData(this.tmp.imageData1, x, y);
 
 		return this;
