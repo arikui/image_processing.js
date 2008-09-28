@@ -88,6 +88,36 @@ Color.prototype = {
 		return (this.max() + this.min()) / 2;
 	},
 
+	blend: function(bpx){
+		var ori = this.round();
+		var ble = bpx.round();
+
+		if(ble.a == 0)
+			return ori;
+
+		if(ori.a == 0 || ble.a == 1)
+			return ble;
+
+		// ori.a = 1
+		// 0 < ble.a < 1
+		if(ori.a == 1)
+			return Color.fromHex(0)
+				.each(function(v, k){
+					px[k] = ble[k] * ble.a + ori[k] * (1 - ble.a);
+				});
+
+		// 0 < ori.a < 1
+		// 0 < ble.a < 1
+		var res = Color.fromHex(0)
+			.each(function(v, k){
+				px[k] = ble[k] * ble.a + ori[k] * ori.a * (1 - ble.a);
+			});
+
+		res.a = ori.a + ble.a - ori.a * ble.a;
+
+		return res;
+	},
+
 	intensity: function(v){
 		return new Color(this.r + v, this.g + v, this.b + v);
 	},
@@ -381,9 +411,19 @@ ImageProcessing.prototype = {
 		return ImageProcessing.Color.fromHexString(this.gContext.getPixel(x, y));
 	},
 
+	/**
+	 * replace pixel
+	 */
 	setPixel: function(x, y, pixel){
 		this.gContext.setPixel(x, y, pixel.toString());
 		return this;
+	},
+
+	/**
+	 * alpha blend
+	 */
+	blendPixel: function(x, y, pixel){
+		return this.setPixel(x, y, this.getPixel(x, y).blend(pixel));
 	},
 
 	/**
@@ -425,6 +465,14 @@ ImageProcessing.prototype = {
 		for(var y = 0, h = this.canvas.height; y < h; y++)
 			for(var x = 0, w = this.canvas.width; x < w; x++)
 				f(this.getPixel(x, y), x, y, this);
+
+		return this;
+	},
+
+	blendEach: function(f){
+		for(var y = 0, h = this.canvas.height; y < h; y++)
+			for(var x = 0, w = this.canvas.width; x < w; x++)
+				f(this.blendPixel(x, y), x, y, this);
 
 		return this;
 	},
@@ -1047,14 +1095,17 @@ ImageProcessing.prototype = {
  * this.support.pixel == false: use ImageData functions
  */
 ImageProcessing.prototype.initPixelControl = function(){
-	if(!this.support.pixel){
-		ImageProcessing.prototype.getPixel = this.initPixelControl.imageData.getPixel;
-		ImageProcessing.prototype.setPixel = this.initPixelControl.imageData.setPixel;
-	}
-	else{
-		ImageProcessing.prototype.getPixel = this.initPixelControl.pixel.getPixel;
-		ImageProcessing.prototype.setPixel = this.initPixelControl.pixel.setPixel;
-	}
+	var callee = arguments.callee;
+
+	var setControl = function(o){
+		for(var x in o)
+			ImageProcessing.prototype[x] = o[x];
+	};
+
+	if(!this.support.pixel)
+		setControl(callee.imageData);
+	else
+		setControl(callee.pixel);
 
 	return this;
 };
@@ -1074,8 +1125,6 @@ ImageProcessing.prototype.initPixelControl.imageData = {
 	},
 
 	setPixel: function(x, y, pixel){
-		pixel = pixel.round();
-
 		if(this.locked){
 			var n = x * 4 + y * this.canvas.width * 4;
 			this.tmp.imageData.data[n++] = pixel.r;
@@ -1095,6 +1144,7 @@ ImageProcessing.prototype.initPixelControl.imageData = {
 
 ImageProcessing.prototype.initPixelControl.pixel = {
 	getPixel: function(x, y){
+		
 		return ImageProcessing.Color.fromHexString(this.gContext.getPixel(x, y));
 	},
 
