@@ -102,14 +102,14 @@ Color.prototype = {
 		// 0 < ble.a < 1
 		if(ori.a == 1)
 			return Color.fromHex(0)
-				.each(function(v, k){
+				.each(function(v, k, px){
 					px[k] = ble[k] * ble.a + ori[k] * (1 - ble.a);
 				});
 
 		// 0 < ori.a < 1
 		// 0 < ble.a < 1
 		var res = Color.fromHex(0)
-			.each(function(v, k){
+			.each(function(v, k, px){
 				px[k] = ble[k] * ble.a + ori[k] * ori.a * (1 - ble.a);
 			});
 
@@ -1144,9 +1144,8 @@ ImageProcessing.prototype.initPixelControl.imageData = {
 
 ImageProcessing.prototype.initPixelControl.pixel = {
 	getPixel: function(x, y){
-		
 		return ImageProcessing.Color.fromHexString(this.gContext.getPixel(x, y));
-	},
+},
 
 	setPixel: function(x, y, pixel){
 		this.gContext.setPixel(x, y, pixel.toString());
