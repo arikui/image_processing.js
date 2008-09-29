@@ -10,10 +10,11 @@ if(window.Image)
 var Color = function(r, g, b, a){
 	if(!a || a != 0) a = 1;
 
-	this.r = parseInt(r, 10);
-	this.g = parseInt(g, 10);
-	this.b = parseInt(b, 10);
-	this.a = parseFloat(a);
+	// to Number
+	this.r = r * 1;
+	this.g = g * 1;
+	this.b = b * 1;
+	this.a = a * 1;
 }
 
 Color.prototype = {
@@ -35,11 +36,17 @@ Color.prototype = {
 	round: function(){
 		var c = new Color(0, 0, 0);
 
-		this.each(function(v, x){
-				c[x] = (v > 255)? 255
-				      :(v <   0)? 0
-				      :Math.round(v);
-		});
+		c.r = (this.r > 255)? 255
+		      :(this.r <   0)? 0
+		      :Math.round(this.r);
+
+		c.g = (this.g > 255)? 255
+		      :(this.g <   0)? 0
+		      :Math.round(this.g);
+
+		c.b = (this.b > 255)? 255
+		      :(this.b <   0)? 0
+		      :Math.round(this.b);
 
 		c.a = (this.a > 1) ? 1
 		     :(this.a < 0) ? 0
@@ -1125,6 +1132,8 @@ ImageProcessing.prototype.initPixelControl.imageData = {
 	},
 
 	setPixel: function(x, y, pixel){
+		pixel = pixel.round();
+
 		if(this.locked){
 			var n = x * 4 + y * this.canvas.width * 4;
 			this.tmp.imageData.data[n++] = pixel.r;
