@@ -75,6 +75,42 @@ Color.prototype = {
 		return new Color(this.r, this.g, this.b, this.a);
 	},
 
+	add: function(c){
+		return Color.fromRgba(
+			this.r + c.r,
+			this.g + c.g,
+			this.b + c.b,
+			this.a + c.a
+		).round();
+	},
+
+	sub: function(c){
+		return Color.fromRgba(
+			this.r - c.r,
+			this.g - c.g,
+			this.b - c.b,
+			this.a - c.a
+		).round();
+	},
+
+	mul: function(c){
+		return Color.fromRgba(
+			this.r * c.r,
+			this.g * c.g,
+			this.b * c.b,
+			this.a * c.a
+		).round();
+	},
+
+	div: function(c){
+		return Color.fromRgba(
+			this.r / c.r,
+			this.g / c.g,
+			this.b / c.b,
+			this.a / c.a
+		).round();
+	},
+
 	max: function(){
 		return Math.max(this.r, this.g, this.b);
 	},
@@ -203,7 +239,7 @@ Color.fromRgba = function(r, g, b, a){
 };
 
 /**
- * @s  "rgb(r,g,b)"
+ * @s  string "rgb(r,g,b)"
  */
 Color.fromRgbString = function(s){
 	var r = /\d{1,3}/g;
@@ -211,7 +247,7 @@ Color.fromRgbString = function(s){
 };
 
 /**
- * @s  "rgba(r,g,b,a)"
+ * @s  string "rgba(r,g,b,a)"
  */
 Color.fromRgbaString = function(s){
 	var r = /\d{1,3}/g;
@@ -226,7 +262,7 @@ Color.fromRgbaString = function(s){
 };
 
 /**
- * @s   string "#rrggbb"
+ * @s  string "#rrggbb"
  */
 Color.fromHexString = function(s){
 	var color = parseInt(s.substr(1), 16);
@@ -288,6 +324,48 @@ Color.fromYcc = function(y, c1, c2){
 
 	return new Color(y + c2, g(y, c1, c2), y + c1);
 };
+
+/* Colors */
+Color.black = function(){
+	return new Color(0, 0, 0);
+};
+
+Color.white = function(){
+	return new Color(255, 255, 255);
+};
+
+Color.red = function(){
+	return new Color(255, 0, 0);
+};
+
+Color.green = function(){
+	return new Color(0, 255, 0);
+};
+
+Color.lime = Color.green;
+
+Color.blue = function(){
+	return new Color(0, 0, 255);
+};
+
+Color.gray = function(){
+	return new Color(127, 127, 127);
+};
+
+Color.aqua = function(){
+	return new Color(0, 255, 255);
+};
+
+Color.cyan = Color.aqua;
+
+Color.yellow = function(){
+	return new Color(255, 255, 0);
+};
+
+Color.magenta = function(){
+	return new Color(255, 0, 255);
+};
+
 
 ImageProcessing.Color = Color;
 ImageProcessing.prototype.Color = function(r, g, b){
@@ -386,8 +464,18 @@ ImageProcessing.prototype = {
 
 	/**
 	 * load by image source
+	 * @src  String  image file
+	 * @x    Number  position by left
+	 * @y    Number  position by top
+	 * @w    Number  image width
+	 * @h    Number  image height
 	 */
-	load: function(src){
+	load: function(src, x, y, w, h){
+		if(!x) x = 0;
+		if(!y) y = 0;
+		if(!w) w = img.width;
+		if(!h) h = img.height;
+
 		var img = new Image();
 		img.src = src;
 		this.context.drawImage(img, 0, 0, img.width, img.height);
@@ -404,6 +492,17 @@ ImageProcessing.prototype = {
 
 	appendTo: function(element){
 		element.appendChild(this.canvas);
+		return this;
+	},
+
+	clear: function(){
+		var w = this.canvas.width;
+		this.canvas.width = 0;
+		this.canvas.width = w;
+
+		if(this.locked)
+			this.lock();
+
 		return this;
 	},
 
@@ -539,6 +638,62 @@ ImageProcessing.prototype = {
 
 		var imageData = process.getImageData(0, 0, process.canvas.width, process.canvas.height);
 		this.putImageData(imageData, x, y);
+
+		return this;
+	},
+
+	trim: function(isLeftTop){
+		if(typeof isLeftTop == "undefined")
+			isLeftTop = true;
+
+		var rect = [0, 0, this.canvas.width, this.canvas.height];
+
+		var color = isLeftTop
+			? this.getPixel(0, 0).toString()
+			: this.getPixel(this.canvas.width - 1, this.canvas.height - 1).toString();
+
+		loop:
+		for(var x = 0; x < this.canvas.width; x++){
+			for(var y = 0; y < this.canvas.height; y++)
+				if(color != this.getPixel(x, y).toString())
+					break loop;
+			rect[0]++;
+		}
+
+		loop:
+		for(y = 0; y < this.canvas.height; y++){
+			for(x = 0; x < this.canvas.width; x++)
+				if(color != this.getPixel(x, y).toString())
+					break loop;
+			rect[1]++;
+		}
+
+		loop:
+		for(x = this.canvas.width - 1; x >= 0; x--){
+			for(y = this.canvas.height - 1; y >= 0; y--)
+				if(color != this.getPixel(x, y).toString())
+					break loop;
+			rect[2]--;
+		}
+
+		loop:
+		for(y = this.canvas.height - 1; y >= 0; y--){
+			for(x = this.canvas.width - 1; x >= 0; x--)
+				if(color != this.getPixel(x, y).toString())
+					break loop;
+			rect[3]--;
+		}
+
+		var clip = this.clip(rect[0], rect[1], rect[2] - rect[0], rect[3] - rect[1]);
+		this.canvas.width  = clip.canvas.width;
+		this.canvas.height = clip.canvas.height;
+
+		this.lock();
+		this.tmp.imageData = clip.getImageData();
+		this.update();
+
+		if(!this.locked)
+			this.unlock();
 
 		return this;
 	},
