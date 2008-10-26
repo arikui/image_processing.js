@@ -380,17 +380,33 @@ function ImageProcessing(element){
 
 /**
  * create object by image source
+ * @src    String   source
+ * @onload Function onload callback
  */
-ImageProcessing.load = function(src){
+ImageProcessing.load = function(src, onload){
+	if(!onload) onload = function(){};
+
 	var canvas = document.createElement("canvas");
 	var ip     = new ImageProcessing(canvas);
 	var img    = new Image();
+	var darwed = false;
 
 	img.src = src;
 	canvas.width  = img.width;
 	canvas.height = img.height;
 
-	ip.context.drawImage(img, 0, 0, img.width, img.height);
+	img.onload = function(e){
+		if(!drawed)
+			ip.context.drawImage(img, 0, 0, img.width, img.height);
+
+		onload(ip, e);
+	};
+
+	try{
+		ip.context.drawImage(img, 0, 0, img.width, img.height);
+		drawed = true;
+	}
+	catch(e){}
 
 	return ip;
 };
@@ -419,7 +435,10 @@ ImageProcessing.prototype = {
 	 * constructor
 	 */
 	init: function(element){
-		if(element) this.canvas = element;
+		if(!element)
+			element = document.createElement("canvas");
+
+		this.canvas = element;
 		this.context = this.canvas.getContext("2d");
 
 		// init properties
@@ -561,7 +580,7 @@ ImageProcessing.prototype = {
 	update: function(){
 		if(this.support.pixel)
 			this.gContext.updateCanvas();
-		else
+		else if(this.tmp.imageData)
 			this.putImageData(this.tmp.imageData, 0, 0);
 
 		return this;
