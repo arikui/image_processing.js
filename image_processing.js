@@ -3,9 +3,10 @@ if(window.Image)
 
 (function(){
 /**
- * @r  red   (0 - 255)
- * @g  gleen (0 - 255)
- * @b  blue  (0 - 255)
+ * @param  r  0 - 255
+ * @param  g  0 - 255
+ * @param  b  0 - 255
+ * @return Color
  */
 var Color = function(r, g, b, a){
 	if(!a || a != 0) a = 1;
@@ -222,7 +223,8 @@ Color.prototype = {
 	},
 
 	/**
-	 * @v   lightness value
+	 * @param  v  lightness value
+	 * @return
 	 */
 	sepia: function(v){
 		if(!v) v = 1;
@@ -239,7 +241,8 @@ Color.fromRgba = function(r, g, b, a){
 };
 
 /**
- * @s  string "rgb(r,g,b)"
+ * @param  s  "rgb(r,g,b)"
+ * @return
  */
 Color.fromRgbString = function(s){
 	var r = /\d{1,3}/g;
@@ -247,7 +250,8 @@ Color.fromRgbString = function(s){
 };
 
 /**
- * @s  string "rgba(r,g,b,a)"
+ * @param  s  "rgba(r,g,b,a)"
+ * @return
  */
 Color.fromRgbaString = function(s){
 	var r = /\d{1,3}/g;
@@ -262,7 +266,8 @@ Color.fromRgbaString = function(s){
 };
 
 /**
- * @s  string "#rrggbb"
+ * @param  s  "#rrggbb"
+ * @return
  */
 Color.fromHexString = function(s){
 	var color = parseInt(s.substr(1), 16);
@@ -270,25 +275,28 @@ Color.fromHexString = function(s){
 };
 
 /**
- * @h   0xrrggbb
+ * @param  h   0xrrggbb
+ * @return
  */
 Color.fromHex = function(h){
 	return new Color(h >> 16, h >> 8 & 255, h & 255);
 };
 
 /**
- * @c   0 - 255
- * @m   0 - 255
- * @y   0 - 255
+ * @param  c   0 - 255
+ * @param  m   0 - 255
+ * @param  y   0 - 255
+ * @return
  */
 Color.fromCmy = function(c, m, y){
 	return new Color(255 - c, 255 - m, 255 - y);
 };
 
 /**
- * @h   0 - 359
- * @s   0 - 255
- * @v   0 - 255
+ * @param  h   0 - 359
+ * @param  s   0 - 255
+ * @param  v   0 - 255
+ * @return
  */
 Color.fromHsv = function(h, s, v){
 	var r, g, b;
@@ -313,9 +321,10 @@ Color.fromHsv = function(h, s, v){
 };
 
 /**
- * @y   0 - 255
- * @c   0 - 255
- * @c   0 - 255
+ * @param  y   0 - 255
+ * @param  c   0 - 255
+ * @param  c   0 - 255
+ * @return
  */
 Color.fromYcc = function(y, c1, c2){
 	var g = function(y, c1, c2){
@@ -380,8 +389,9 @@ function ImageProcessing(element){
 
 /**
  * create object by image source
- * @src    String   source
- * @onload Function onload callback
+ * @param  src    String   source
+ * @param  onload Function onload callback
+ * @return
  */
 ImageProcessing.load = function(src, onload){
 	if(!onload) onload = function(){};
@@ -483,11 +493,12 @@ ImageProcessing.prototype = {
 
 	/**
 	 * load by image source
-	 * @src  String  image file
-	 * @x    Number  position by left
-	 * @y    Number  position by top
-	 * @w    Number  image width
-	 * @h    Number  image height
+	 * @param  src  String  image file
+	 * @param  x    Number  position by left
+	 * @param  y    Number  position by top
+	 * @param  w    Number  image width
+	 * @param  h    Number  image height
+	  * @return
 	 */
 	load: function(src, x, y, w, h){
 		if(!x) x = 0;
@@ -1123,9 +1134,10 @@ ImageProcessing.prototype = {
 	},
 
 	/**
-	 * @process  ImageProcessing        background image
-	 * @aColor   ImageProcessing.Color  alpha color
-	 * @rColor   ImageProcessing.Color  range color
+	 * @param  process  ImageProcessing        background image
+	 * @param  aColor   ImageProcessing.Color  alpha color
+	 * @param  rColor   ImageProcessing.Color  range color
+	 * @return
 	 */
 	blueScreen: function(process, aColor, rColor){
 		if(!aColor) aColor = ImageProcessing.Color.fromHex(0x0000ff);
@@ -1195,9 +1207,10 @@ ImageProcessing.prototype = {
 	},
 
 	/**
-	 * @process  ImageProcessing        background image
-	 * @aColor   ImageProcessing.Color  alpha color
-	 * @soft     Boolean                use soft key
+	 * @param  process  ImageProcessing        background image
+	 * @param  aColor   ImageProcessing.Color  alpha color
+	 * @param  soft     Boolean                use soft key
+	 * @return
 	 */
 	chromaKey: function(process, aColor, soft){
 		if(!aColor) aColor = ImageProcessing.Color.fromHex(0x0000ff);
@@ -1239,10 +1252,11 @@ ImageProcessing.prototype = {
 	},
 
 	/**
-	 * @process  ImageProcessing object
-	 * @alpha    Number (0 - 1)
-	 * @lx       left x
-	 * @ty       top y
+	 * @param  process  ImageProcessing object
+	 * @param  alpha    Number (0 - 1)
+	 * @param  lx       left x
+	 * @param  ty       top y
+	 * @return
 	 */
 	blend: function(process, alpha, lx, ty){
 		if(!alpha) alpha = 0.5;
