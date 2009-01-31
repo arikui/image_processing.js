@@ -399,7 +399,7 @@ ImageProcessing.load = function(src, onload){
 	var canvas = document.createElement("canvas");
 	var ip     = new ImageProcessing(canvas);
 	var img    = new Image();
-	var darwed = false;
+	var drawed = false;
 
 	img.src = src;
 	canvas.width  = img.width;
