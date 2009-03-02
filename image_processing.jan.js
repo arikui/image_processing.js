@@ -86,16 +86,15 @@ ImageProcessing.JAN = {
 
 	initial: {
 		"oooooo": 0, "ooeoee": 1, "ooeeoe": 2, "ooeeeo": 3, "oeooee": 4,
-		"oeeooe": 5, "oeeeoo": 6, "oeoeoe": 7, "oooooo": 8, "oeeoeo": 9
+		"oeeooe": 5, "oeeeoo": 6, "oeoeoe": 7, "oeoeeo": 8, "oeeoeo": 9
 	},
 
-	checkDigit: function(bits){
+	checkDigit: function(nums){
 		var n = 0;
 
-		bits.forEach(function(v, i){
-			n += v * ((i % 2 == 0)? 1 : 3);
-		});
+		for(var i = 0; i < 12; ++i)
+			n += nums[i] * ((i % 2 == 0)? 1 : 3);
 
-		return 10 - (n % 10);
+		return 10 - (n % 10) == nums[12];
 	}
 };
