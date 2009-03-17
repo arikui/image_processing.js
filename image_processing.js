@@ -299,9 +299,7 @@ Color.fromCmy = function(c, m, y){
  * @return
  */
 Color.fromHsv = function(h, s, v){
-	var r, g, b;
-
-	if(s = 0)
+	if(s === 0)
 		return new Color(v, v, v);
 
 	var ht = h * 6;
