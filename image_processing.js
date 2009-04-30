@@ -38,20 +38,20 @@ Color.prototype = {
 		var c = new Color(0, 0, 0);
 
 		c.r = (this.r > 255)? 255
-		      :(this.r <   0)? 0
-		      :Math.round(this.r);
+		    : (this.r <   0)? 0
+		    : Math.round(this.r);
 
 		c.g = (this.g > 255)? 255
-		      :(this.g <   0)? 0
-		      :Math.round(this.g);
+		    : (this.g <   0)? 0
+		    : Math.round(this.g);
 
 		c.b = (this.b > 255)? 255
-		      :(this.b <   0)? 0
-		      :Math.round(this.b);
+		    : (this.b <   0)? 0
+		    : Math.round(this.b);
 
 		c.a = (this.a > 1) ? 1
-		     :(this.a < 0) ? 0
-		     : this.a;
+		    : (this.a < 0) ? 0
+		    : this.a;
 
 		return c;
 	},
@@ -144,18 +144,17 @@ Color.prototype = {
 
 		// ori.a = 1
 		// 0 < ble.a < 1
-		if(ori.a == 1)
-			return Color.fromHex(0)
-				.each(function(v, k, px){
-					px[k] = ble[k] * ble.a + ori[k] * (1 - ble.a);
-				});
+		if(ori.a == 1){
+			return Color.fromHex(0).each(function(v, k, px){
+				px[k] = ble[k] * ble.a + ori[k] * (1 - ble.a);
+			});
+		}
 
 		// 0 < ori.a < 1
 		// 0 < ble.a < 1
-		var res = Color.fromHex(0)
-			.each(function(v, k, px){
-				px[k] = ble[k] * ble.a + ori[k] * ori.a * (1 - ble.a);
-			});
+		var res = Color.fromHex(0).each(function(v, k, px){
+			px[k] = ble[k] * ble.a + ori[k] * ori.a * (1 - ble.a);
+		});
 
 		res.a = ori.a + ble.a - ori.a * ble.a;
 
@@ -229,6 +228,47 @@ Color.prototype = {
 	sepia: function(v){
 		if(!v) v = 1;
 		return new Color(this.r * 0.957 * v, this.g * 0.784 * v, this.b * 0.567 * v);
+	},
+
+	/**
+	 * @return Array [h, s, v]
+	 */
+	hsv: function(){
+		return [this.hue(), this.saturation(), this.brightness()];
+	},
+
+	/**
+	 * @return 0 - 359
+	 */
+	hue: function(){
+		var max = this.max();
+		if(max == 0) return 0;
+		var min = this.min();
+		if(max == min) return 0;
+		var ra = max - min;
+
+		switch(max){
+			case this.r: return 60 * (this.g - this.b) / ra;
+			case this.g: return 60 * (this.b - this.r) / ra + 120;
+			case this.b: return 60 * (this.r - this.g) / ra + 240;
+		}
+	},
+
+	/**
+	 * @return 0 - 255
+	 */
+	saturation: function(){
+		var max = this.max();
+		if(max == 0) return 0;
+		var min = this.min();
+		return 255 * (max - min) / max;
+	},
+
+	/**
+	 * @return 0 - 255
+	 */
+	brightness: function(){
+		return this.max();
 	}
 };
 
@@ -373,7 +413,6 @@ Color.magenta = function(){
 	return new Color(255, 0, 255);
 };
 
-
 ImageProcessing.Color = Color;
 ImageProcessing.prototype.Color = function(r, g, b){
 	return new Color(r, g, b);
@@ -399,7 +438,6 @@ ImageProcessing.load = function(src, onload){
 	var img    = new Image();
 	var drawed = false;
 
-	img.src = src;
 	canvas.width  = img.width;
 	canvas.height = img.height;
 
@@ -409,6 +447,8 @@ ImageProcessing.load = function(src, onload){
 
 		onload(ip, e);
 	};
+
+	img.src = src;
 
 	try{
 		ip.context.drawImage(img, 0, 0, img.width, img.height);
@@ -446,7 +486,7 @@ ImageProcessing.prototype = {
 		if(!element)
 			element = document.createElement("canvas");
 
-		this.canvas = element;
+		this.canvas  = element;
 		this.context = this.canvas.getContext("2d");
 
 		// init properties
