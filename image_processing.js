@@ -254,7 +254,7 @@ Color.prototype = {
 	 */
 	saturation: function(){
 		var max = this.max();
-		if(max === 0) return 0;
+		if(max == 0) return 0;
 		var min = this.min();
 		return 255 * (max - min) / max;
 	},
@@ -338,19 +338,21 @@ Color.fromHsv = function(h, s, v){
 	if(s === 0)
 		return new Color(v, v, v);
 
+	s /= 255;
+	v /= 255;
 	var hi = Math.floor(h / 60) % 6;
 	var f  = h / 60 - hi;
-	var t1 = v * (255 - s);
-	var t2 = v * (255 - f * s);
-	var t3 = v * (255 - (255 - f) * s / 255);
+	var t1 = Math.round(255 * v * (1 - s));
+	var t2 = Math.round(255 * v * (1 - f * s));
+	var t3 = Math.round(255 * v * (1 - (1 - f) * s));
 
 	switch(hi){
-		case 0 : return new Color( v, t3, t1);
-		case 1 : return new Color(t2,  v, t1);
-		case 2 : return new Color(t1,  v, t3);
-		case 3 : return new Color(t1, t2,  v);
-		case 4 : return new Color(t3, t1,  v);
-		default: return new Color( v, t1, t2);
+		case 0 : return Color.fromRgb( v, t3, t1);
+		case 1 : return Color.fromRgb(t2,  v, t1);
+		case 2 : return Color.fromRgb(t1,  v, t3);
+		case 3 : return Color.fromRgb(t1, t2,  v);
+		case 4 : return Color.fromRgb(t3, t1,  v);
+		default: return Color.fromRgb( v, t1, t2);
 	}
 };
 
