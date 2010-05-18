@@ -338,13 +338,13 @@ Color.fromHsv = function(h, s, v){
 	if(s === 0)
 		return new Color(v, v, v);
 
-	var ht = h * 6;
-	var d = ht % 360;
-	var t1 = Math.round((255 - s) / 255 * v);
-	var t2 = Math.round(((255 - d) / 360 * s) / 255 * v);
-	var t3 = Math.round((255 - (255 - d) / 360 * s) / 255 * v);
+	var hi = Math.floor(h / 60) % 6;
+	var f  = h / 60 - hi;
+	var t1 = v * (255 - s);
+	var t2 = v * (255 - f * s);
+	var t3 = v * (255 - (255 - f) * s / 255);
 
-	switch(Math.round(ht / 360)){
+	switch(hi){
 		case 0 : return new Color( v, t3, t1);
 		case 1 : return new Color(t2,  v, t1);
 		case 2 : return new Color(t1,  v, t3);
@@ -642,8 +642,8 @@ ImageProcessing.prototype = {
 	},
 
 	blendEach: function(f){
-		for(var y = 0, h = this.canvas.height; y < h; y++)
-			for(var x = 0, w = this.canvas.width; x < w; x++)
+		for(var y = -1, h = this.canvas.height; ++y < h;)
+			for(var x = -1, w = this.canvas.width; ++x < w;)
 				f(this.blendPixel(x, y), x, y, this);
 		return this;
 	},
@@ -658,8 +658,8 @@ ImageProcessing.prototype = {
 	map: function(f){
 		var a = [];
 
-		for(var x = 0, w = this.canvas.width; x < w; x++)
-			for(var y = 0, h = this.canvas.height; y < h; y++)
+		for(var y = -1, h = this.canvas.height; ++y < h;)
+			for(var x = -1, w = this.canvas.width; ++x < w;)
 				a.push(f(this.getPixel(x, y), x, y, this));
 
 		return a;
