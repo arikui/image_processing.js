@@ -338,7 +338,9 @@ Color.fromHsv = function(h, s, v){
 	if(s === 0)
 		return new Color(v, v, v);
 
-	var hi = Math.floor(h / 60) % 6;
+	var hi = ((h / 60) >> 0) % 6;
+	if(hi < 0) hi *= -1;
+
 	var f  = h / 60 - hi;
 	var t1 = Math.round(v * (255 - s));
 	var t2 = Math.round(v * (255 - f * s));
