@@ -338,13 +338,11 @@ Color.fromHsv = function(h, s, v){
 	if(s === 0)
 		return new Color(v, v, v);
 
-	s /= 255;
-	v /= 255;
 	var hi = Math.floor(h / 60) % 6;
 	var f  = h / 60 - hi;
-	var t1 = Math.round(255 * v * (1 - s));
-	var t2 = Math.round(255 * v * (1 - f * s));
-	var t3 = Math.round(255 * v * (1 - (1 - f) * s));
+	var t1 = Math.round(v * (255 - s));
+	var t2 = Math.round(v * (255 - f * s));
+	var t3 = Math.round(v * (255 - (1 - f) * s));
 
 	switch(hi){
 		case 0 : return Color.fromRgb( v, t3, t1);
