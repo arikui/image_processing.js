@@ -346,12 +346,12 @@ Color.fromHsv = function(h, s, v){
 	var t3 = v * (1 - (1 - f) * s / 255);
 
 	switch(hi){
-		case 0 : return Color.fromRgb( v, t3, t1);
-		case 1 : return Color.fromRgb(t2,  v, t1);
-		case 2 : return Color.fromRgb(t1,  v, t3);
-		case 3 : return Color.fromRgb(t1, t2,  v);
-		case 4 : return Color.fromRgb(t3, t1,  v);
-		default: return Color.fromRgb( v, t1, t2);
+		case 0 : return Color.fromRgb( v, t3, t1).round();
+		case 1 : return Color.fromRgb(t2,  v, t1).round();
+		case 2 : return Color.fromRgb(t1,  v, t3).round();
+		case 3 : return Color.fromRgb(t1, t2,  v).round();
+		case 4 : return Color.fromRgb(t3, t1,  v).round();
+		default: return Color.fromRgb( v, t1, t2).round();
 	}
 };
 
