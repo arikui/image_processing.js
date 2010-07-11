@@ -3,10 +3,10 @@ if(window.Image)
 
 (function(){
 /**
- * @param  r  0 - 255
- * @param  g  0 - 255
- * @param  b  0 - 255
- * @return Color
+ * @param  {Number} r  0 - 255
+ * @param  {Number} g  0 - 255
+ * @param  {Number} b  0 - 255
+ * @return {ImageProcessing.Color}
  */
 var Color = function(r, g, b, a){
 	if(!a || a !== 0) a = 1;
@@ -217,46 +217,49 @@ Color.prototype = {
 	},
 
 	/**
-	 * @param  v  lightness value
-	 * @return
+	 * @param  {Number} v  lightness value
+	 * @return {ImageProcessing.Color}
 	 */
 	sepia: function(v){
 		if(!v) v = 1;
-		return new Color(this.r * 0.957 * v, this.g * 0.784 * v, this.b * 0.567 * v);
+		return new Color(this.r * 957 * v / 1000, this.g * 784 * v / 1000, this.b * 567 * v / 1000);
 	},
 
 	/**
-	 * @return Array [h, s, v]
+	 * @return {Number[]} h, s, v
 	 */
 	hsv: function(){
 		return [this.hue(), this.saturation(), this.brightness()];
 	},
 
 	/**
-	 * @return 0 - 359
+	 * @return {Number} 0 - 359
 	 */
 	hue: function(){
-		var max = this.max();
-		if(max === 0) return 0;
-		var min = this.min();
+		var c = this.round();
+
+		var max = c.max();
+		if(!max) return 0;
+
+		var min = c.min();
 		if(max == min) return 0;
-		var ra = max - min;
+
+		var range = max - min;
 
 		switch(max){
-			case this.r: return 60 * (this.g - this.b) / ra;
-			case this.g: return 60 * (this.b - this.r) / ra + 120;
-			case this.b: return 60 * (this.r - this.g) / ra + 240;
+			case c.r: return 60 * (c.g - c.b) / range;
+			case c.g: return 60 * (c.b - c.r) / range + 120;
+			case c.b: return 60 * (c.r - c.g) / range + 240;
 		}
 	},
 
 	/**
-	 * @return 0 - 255
+	 * @return {Number} 0 - 255
 	 */
 	saturation: function(){
 		var max = this.max();
-		if(max == 0) return 0;
-		var min = this.min();
-		return 255 * (max - min) / max;
+		if(!max) return 0;
+		return 255 * (max - this.min()) / max;
 	},
 
 	/**
@@ -277,8 +280,8 @@ Color.fromRgba = function(r, g, b, a){
 };
 
 /**
- * @param  s  "rgb(r,g,b)"
- * @return
+ * @param  {String} s  "rgb(r,g,b)"
+ * @return {ImageProcessing.Color}
  */
 Color.fromRgbString = function(s){
 	var r = /\d{1,3}/g;
@@ -286,8 +289,8 @@ Color.fromRgbString = function(s){
 };
 
 /**
- * @param  s  "rgba(r,g,b,a)"
- * @return
+ * @param  {String} s  "rgba(r,g,b,a)"
+ * @return {ImageProcessing.Color}
  */
 Color.fromRgbaString = function(s){
 	var r = /\d{1,3}/g;
@@ -302,8 +305,8 @@ Color.fromRgbaString = function(s){
 };
 
 /**
- * @param  s  "#rrggbb"
- * @return
+ * @param  {String} s  "#rrggbb"
+ * @return {ImageProcessing.Color}
  */
 Color.fromHexString = function(s){
 	var color = parseInt(s.substr(1), 16);
@@ -311,28 +314,28 @@ Color.fromHexString = function(s){
 };
 
 /**
- * @param  h   0xrrggbb
- * @return
+ * @param  {Number} h   0xrrggbb
+ * @return {ImageProcessing.Color}
  */
 Color.fromHex = function(h){
 	return new Color(h >> 16, h >> 8 & 255, h & 255);
 };
 
 /**
- * @param  c   0 - 255
- * @param  m   0 - 255
- * @param  y   0 - 255
- * @return
+ * @param  {Number} c   0 - 255
+ * @param  {Number} m   0 - 255
+ * @param  {Number} y   0 - 255
+ * @return {ImageProcessing.Color}
  */
 Color.fromCmy = function(c, m, y){
 	return new Color(255 - c, 255 - m, 255 - y);
 };
 
 /**
- * @param  h   0 - 359
- * @param  s   0 - 255
- * @param  v   0 - 255
- * @return
+ * @param  {Number} h   0 - 359
+ * @param  {Number} s   0 - 255
+ * @param  {Number} v   0 - 255
+ * @return {ImageProcessing.Color}
  */
 Color.fromHsv = function(h, s, v){
 	if(s == 0)
@@ -356,10 +359,10 @@ Color.fromHsv = function(h, s, v){
 };
 
 /**
- * @param  y   0 - 255
- * @param  c   0 - 255
- * @param  c   0 - 255
- * @return
+ * @param  {Number} y    0 - 255
+ * @param  {Number} c1   0 - 255
+ * @param  {Number} c2   0 - 255
+ * @return {ImageProcessing.Color}
  */
 Color.fromYcc = function(y, c1, c2){
 	var g = function(y, c1, c2){
@@ -417,44 +420,48 @@ ImageProcessing.prototype.Color = function(r, g, b){
 })();
 
 
+/**
+ * @class Image Processing
+ * @param {HTMLCanvasElement} element
+ */
 function ImageProcessing(element){
 	this.init(element);
 }
 
 /**
  * create object by image source
- * @param  src    String   source
- * @param  onload Function onload callback
- * @return
+ * @param  {String}   src    source
+ * @param  {Function} onload callback
+ * @return {ImageProcessing}
  */
 ImageProcessing.load = function(src, onload){
 	var canvas = document.createElement("canvas");
 	var ip     = new ImageProcessing(canvas);
-	var img    = new Image();
+	var img    = new Image;
 	var drawed = false;
 
 	img.onload = function(e){
-		if(!drawed){
-			canvas.width  = img.naturalWidth;
-			canvas.height = img.naturalHeight;
-			ip.context.drawImage(img, 0, 0, canvas.width, canvas.height);
-			drawed = true;
-		}
-
-		if(onload) onload(ip, e);
+		if(!drawed) draw();
+		if(onload) onload.call(ip, ip, e);
 	};
 
 	img.src = src;
 
-	try{
-		canvas.width  = img.naturalWidth;
-		canvas.height = img.naturalHeight;
-		ip.context.drawImage(img, 0, 0, canvas.width, canvas.height);
-		drawed = true;
-	}
+	try{ draw(); }
 	catch(e){}
 
 	return ip;
+
+	function draw(){
+		ip.width  = (canvas.width  = img.naturalWidth  || img.width);
+		ip.height = (canvas.height = img.naturalHeight || img.height);
+
+		if(!ip.width || !ip.height) return;
+
+		ip.context.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+		drawed = true;
+	}
 };
 
 ImageProcessing.prototype = {
@@ -486,6 +493,8 @@ ImageProcessing.prototype = {
 
 		this.canvas  = element;
 		this.context = this.canvas.getContext("2d");
+		this.width   = this.canvas.width;
+		this.height  = this.canvas.height;
 
 		// init properties
 		this.origin = {
@@ -543,8 +552,8 @@ ImageProcessing.prototype = {
 		var img = new Image();
 		img.src = src;
 
-		if(!w) w = img.width;
-		if(!h) h = img.height;
+		if(!w) w = img.naturalWidth  || img.width;
+		if(!h) h = img.naturalHeight || img.height;
 
 		this.context.drawImage(img, x, y, w, h);
 
@@ -638,21 +647,26 @@ ImageProcessing.prototype = {
 	each: function(f){
 		for(var y = -1, h = this.canvas.height; ++y < h;)
 			for(var x = -1, w = this.canvas.width; ++x < w;)
-				f(this.getPixel(x, y), x, y, this);
+				f.call(this, this.getPixel(x, y), x, y, this);
 		return this;
 	},
 
 	blendEach: function(f){
 		for(var y = -1, h = this.canvas.height; ++y < h;)
 			for(var x = -1, w = this.canvas.width; ++x < w;)
-				f(this.blendPixel(x, y), x, y, this);
+				f.call(this, this.blendPixel(x, y), x, y, this);
 		return this;
 	},
 
 	setEach: function(f){
-		for(var y = -1, h = this.canvas.height; ++y < h;)
-			for(var x = -1, w = this.canvas.width; ++x < w;)
-				this.setPixel(x, y, f(this.getPixel(x, y), x, y, this));
+		var px, _px;
+		for(var y = -1, h = this.canvas.height; ++y < h;){
+			for(var x = -1, w = this.canvas.width; ++x < w;){
+				px  = this.getPixel(x, y);
+				_px = f.call(this, px, x, y, this);
+				this.setPixel(x, y, _px || px);
+			}
+		}
 		return this;
 	},
 
@@ -669,8 +683,8 @@ ImageProcessing.prototype = {
 	getImageData: function(from_x, from_y, width, height){
 		if(!from_x) from_x = 0;
 		if(!from_y) from_y = 0;
-		if(!width)  width  = this.canvas.width;
-		if(!height) height = this.canvas.height;
+		if(!width)  width  = this.width  || this.canvas.width;
+		if(!height) height = this.height || this.canvas.height;
 
 		var imageData = this.context.getImageData(from_x, from_y, width, height);
 
