@@ -9,7 +9,7 @@ if(window.Image)
  * @return {ImageProcessing.Color}
  */
 var Color = function(r, g, b, a){
-	if(!a || a !== 0) a = 1;
+	if(!(a || a === 0)) a = 1;
 
 	// to Number
 	this.r = r * 1;
@@ -197,16 +197,16 @@ Color.prototype = {
 	},
 
 	 ntsc: function(){
-		var v = this.r * 0.299 + this.g * 0.587 + this.b * 0.114;
+		var v = this.r * 299 / 1000 + this.g * 587 / 1000 + this.b * 57 / 500;
 		return new Color(v, v, v);
 	},
 
 	hdtv: function(x){
 		if(!x) x = 1;
 
-		var r = Math.pow(this.r, x) * 0.222015;
-		var g = Math.pow(this.g, x) * 0.706655;
-		var b = Math.pow(this.b, x) * 0.071330;
+		var r = Math.pow(this.r, x) *  44403 / 200000;
+		var g = Math.pow(this.g, x) * 141331 / 200000;
+		var b = Math.pow(this.b, x) *   7133 / 100000;
 		var y = Math.pow(r + g + b, 1 / x);
 
 		return new Color(y, y, y);
@@ -338,10 +338,9 @@ Color.fromCmy = function(c, m, y){
  * @return {ImageProcessing.Color}
  */
 Color.fromHsv = function(h, s, v){
-	if(s == 0)
-		return new Color(v, v, v);
+	if(s == 0) return new Color(v, v, v);
 
-	var hi = Math.floor(h / 60) % 6;
+	var hi = (h / 60 >> 0) % 6;
 
 	var f  = h / 60 - hi;
 	var t1 = v * (1 - s / 255);
@@ -359,17 +358,76 @@ Color.fromHsv = function(h, s, v){
 };
 
 /**
- * @param  {Number} y    0 - 255
- * @param  {Number} c1   0 - 255
- * @param  {Number} c2   0 - 255
+ * @param  {Number} h   0 - 359
+ * @param  {Number} s   0 - 1
+ * @param  {Number} l   0 - 1
  * @return {ImageProcessing.Color}
  */
-Color.fromYcc = function(y, c1, c2){
-	var g = function(y, c1, c2){
-		return (0.557 * y - 0.299 * c1 - 0.144 * c2) / 0.587;
-	};
+Color.fromHsl = function(h, s, l){
+	if(s == 0) return new Color(l, l, l);
 
-	return new Color(y + c2, g(y, c1, c2), y + c1);
+	var c  = (l <= 127)? 255 * 2 * s * l
+	                   : 255 * 2 * s * (1 - l);
+	var _h = (h % 360) / 60;
+	var x  = c * (1 - Math.abs(_h % 2 - 1));
+	var m  =  l - c / 2;
+	var r, g, b;
+
+	switch(_h >> 0){
+		case  0: r = c, g = x, b = 0; break;
+		case  1: r = x, g = c, b = 0; break;
+		case  2: r = 0, g = c, b = x; break;
+		case  3: r = 0, g = x, b = c; break;
+		case  4: r = x, g = 0, b = c; break;
+		case  5:
+		case  6: r = c, g = 0, b = x; break;
+		default: r = 0, g = 0, b = 0;
+	}
+	
+	return Color.fromRgb(255 * (r + m), 255 * (g + m), 255 * (b + m)).round();
+};
+
+Color.fromHsl = function(h, s, l){
+	if(s == 0) return new Color(l, l, l);
+
+	var c  = (l <= 1 / 2)? 2 * s * l
+	                     : 2 * s * (1 - l);
+	var _h = (h % 360) / 60;
+	var x  = c * (1 - Math.abs(_h % 2 - 1));
+	var m  = l - c / 2;
+	var r, g, b;
+
+	switch(_h >> 0){
+		case  0: r = c, g = x, b = 0; break;
+		case  1: r = x, g = c, b = 0; break;
+		case  2: r = 0, g = c, b = x; break;
+		case  3: r = 0, g = x, b = c; break;
+		case  4: r = x, g = 0, b = c; break;
+		case  5:
+		case  6: r = c, g = 0, b = x; break;
+		default: r = 0, g = 0, b = 0;
+	}
+	
+	return Color.fromRgb(255 * (r + m), 255 * (g + m), 255 * (b + m)).round();
+};
+
+/**
+ * @param  {Number} y    0 - 255
+ * @param  {Number} cb   0 - 255
+ * @param  {Number} cr   0 - 255
+ * @return {ImageProcessing.Color}
+ */
+Color.fromYcc = function(y, cb, cr){
+	var n1 = (y  -  16) * 255       / 219,
+	    n2 = (cb - 128) * 255 * 886 / 112000,
+	    n3 = (cr - 128) * 255 * 701 / 112000;
+	return new Color(n1 + n3,
+	                 n1 - (n2 * 114 + n3 * 299) / 587,
+	                 n1 + n2);
+};
+
+Color.fromXyz = function(x, y, z){
+	
 };
 
 /* Colors */
@@ -464,86 +522,107 @@ ImageProcessing.load = function(src, onload){
 	}
 };
 
+/**
+ * load by video element
+ * @param  {HTMLVideoElement} video
+ * @param  {Function}         onload callback
+ * @return {ImageProcessing}
+ */
+ImageProcessing.loadVideo = function(video, onload){
+	var canvas = document.createElement("canvas");
+	var ip     = new ImageProcessing(canvas);
+	var drawed = false;
+
+	var _onload = function(e){
+		if(!drawed) draw();
+		if(onload) onload.call(ip, ip, e);
+		video.removeEventListener(arguments.callee);
+	};
+
+	video.addEventListener("canplay", _onload, false);
+
+	try{ draw(); }
+	catch(e){}
+
+	return ip;
+
+	function draw(){
+		var w = video.videoWidth  || video.width;
+		var h = video.videoHeight || video.height;
+
+		if(!w || !h) return;
+
+		ip.width  = canvas.width  = w;
+		ip.height = canvas.height = h;
+
+		ip.context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+		drawed = true;
+	}
+};
+
 ImageProcessing.prototype = {
-	locked: false,
-
-	origin: {
-		process: null,
-		x: null,
-		y: null
-	},
-
-	tmp: {
-		// All
-		imageData: null,
-		// 1 * 1
-		imageData1: {
-			width : 1,
-			height: 1,
-			data  : [0, 0, 0, 255]
-		}
-	},
-
 	/**
 	 * constructor
 	 */
 	init: function(element){
-		if(!element)
-			element = document.createElement("canvas");
+		if(!element) element = document.createElement("canvas");
 
 		this.canvas  = element;
 		this.context = this.canvas.getContext("2d");
 		this.width   = this.canvas.width;
 		this.height  = this.canvas.height;
-
-		// init properties
-		this.origin = {
-			process: null,
-			x: null,
-			y: null
-		};
-
-		this.tmp = {
-			imageData : null,
-			imageData1: {
-				width : 1,
-				height: 1,
-				data  : [0, 0, 0, 255]
-			}
-		};
+		this.locked  = false;
 
 		// set browser support
+		// use native setPixel/setPixel if support opera-2dgame
 		if(!ImageProcessing.support){
-			this.support = {
+			ImageProcessing.support = {
 				pixel    : false,
 				imageData: !!this.context.getImageData
 			};
 
 			try{
 				this.gContext = this.canvas.getContext("opera-2dgame");
-				this.support.pixel = !!this.gContext;
+				ImageProcessing.support.pixel = !!this.gContext;
 			}
 			catch(e){}
-
-			ImageProcessing.support = this.support;
 		}
-		else
-			this.support = ImageProcessing.support;
 
-		// use imageData object
+		this.support = ImageProcessing.support;
 		this.initPixelControl();
+
+		// origin ImageProcessing for clip
+		this.origin = {
+			process: null,
+			x: null,
+			y: null
+		};
+
+		// temporary image data
+		this.tmp = {
+			// All
+			imageData : null,
+			// 1 * 1
+			imageData1: this.context.createImageData?
+				this.context.createImageData(1, 1) : {
+					width : 1,
+					height: 1,
+					data  : [0, 0, 0, 255]
+				}
+		};
 
 		return this;
 	},
 
 	/**
 	 * load by image source
-	 * @param  src  String  image file
-	 * @param  x    Number  position by left
-	 * @param  y    Number  position by top
-	 * @param  w    Number  image width
-	 * @param  h    Number  image height
-	  * @return
+	 * @param {string}   src image file
+	 * @param {number=0} x   left
+	 * @param {number=0} y   top
+	 * @param {number=}  w   image width
+	 * @param {number=}  h   image height
+	  * @return {ImageProcessing}
 	 */
 	load: function(src, x, y, w, h){
 		if(!x) x = 0;
@@ -586,8 +665,8 @@ ImageProcessing.prototype = {
 	/**
 	 * get data url
 	 */
-	data: function(){
-		return this.canvas.toDataURL();
+	data: function(type){
+		return this.canvas.toDataURL(type);
 	},
 
 	getPixel: function(x, y){
@@ -659,14 +738,17 @@ ImageProcessing.prototype = {
 	},
 
 	setEach: function(f){
-		var px, _px;
-		for(var y = -1, h = this.canvas.height; ++y < h;){
-			for(var x = -1, w = this.canvas.width; ++x < w;){
+		var px, _px,
+		    x, y,
+		    h = this.canvas.height,
+		    w = this.canvas.width;
+
+		for(y = -1; ++y < h;) for(x = -1; ++x < w;){
 				px  = this.getPixel(x, y);
 				_px = f.call(this, px, x, y, this);
 				this.setPixel(x, y, _px || px);
-			}
 		}
+
 		return this;
 	},
 
@@ -701,18 +783,17 @@ ImageProcessing.prototype = {
 	},
 
 	clip: function(x, y, width, height){
-		var canvas    = document.createElement("canvas");
+		var canvas    = this.canvas.cloneNode();
 		var ip        = new ImageProcessing(canvas);
 		var imageData = this.getImageData(x, y, width, height);
 
-		canvas.width  = imageData.width;
-		canvas.height = imageData.height;
+		ip.width  = canvas.width  = width;
+		ip.height = canvas.height = height;
 
-		ip.origin.process = this;
 		ip.origin.x = x;
 		ip.origin.y = y;
 
-		ip.putImageData(imageData, 0, 0);
+		ip.putImageData(imageData, 0, 0, width, height);
 
 		return ip;
 	},
@@ -1040,19 +1121,45 @@ ImageProcessing.prototype = {
 		return this;
 	},
 
-	mosaic: function(size_w, size_h){
-		if(!size_h) size_h = size_w;
+	/**
+	 * @param {Number}           sizeW
+	 * @param {Number|Function}  sizeH
+	 * @param {Function}         fn
+	 */
+	mosaic: function(sizeW, sizeH, fn){
+		if(sizeH instanceof Function){
+			fn = sizeH;
+			sizeH = 0;
+		}
 
-		var sw, sh;
+		if(!sizeH) sizeH = sizeW;
 
-		for(var x = 0, w = this.canvas.width; x < w; x += size_w){
-			sw = (x + size_w >= this.canvas.width) ? this.canvas.width  - 1 - x : size_w;
+		var w = this.canvas.width,
+		    h = this.canvas.height;
+		var sw, sh, px;
 
-			for(var y = 0, h = this.canvas.height; y < h; y += size_h){
-				sh = (y + size_h >= this.canvas.height)? this.canvas.height - 1 - y : size_h;
+		if(fn){
+			for(var x = 0; x < w; x += sizeW){
+				sw = (x + sizeW >= this.canvas.width) ? this.canvas.width  - 1 - x : sizeW;
 
-				this.context.fillStyle = this.average(x, y, sw, sh).toString();
-				this.context.fillRect(x, y, size_w, size_h);
+				for(var y = 0; y < h; y += sizeH){
+					sh = (y + sizeH >= this.canvas.height)? this.canvas.height - 1 - y : sizeH;
+
+					this.context.fillStyle = fn.call(this, this.average(x, y, sw, sh)).toString();
+					this.context.fillRect(x, y, sizeW, sizeH);
+				}
+			}
+		}
+		else{
+			for(var x = 0; x < w; x += sizeW){
+				sw = (x + sizeW >= this.canvas.width) ? this.canvas.width  - 1 - x : sizeW;
+
+				for(var y = 0; y < h; y += sizeH){
+					sh = (y + sizeH >= this.canvas.height)? this.canvas.height - 1 - y : sizeH;
+
+					this.context.fillStyle = this.average(x, y, sw, sh).toString();
+					this.context.fillRect(x, y, sizeW, sizeH);
+				}
 			}
 		}
 
@@ -1347,7 +1454,6 @@ ImageProcessing.prototype.initPixelControl.imageData = {
 		if(this.locked){
 			var data = this.tmp.imageData.data;
 			var n = x * 4 + y * this.canvas.width * 4;
-
 			return new ImageProcessing.Color(data[n++], data[n++], data[n++], data[n] / 255);
 		}
 
