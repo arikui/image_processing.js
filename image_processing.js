@@ -213,7 +213,7 @@ Color.prototype = {
 	},
 
 	invert: function(){
-		return new Color(255 - this.r, 255 - this.g, 255 - this.b);
+		return new Color(255 - this.r, 255 - this.g, 255 - this.b, this.a);
 	},
 
 	/**
@@ -222,7 +222,9 @@ Color.prototype = {
 	 */
 	sepia: function(v){
 		if(!v) v = 1;
-		return new Color(this.r * 957 * v / 1000, this.g * 784 * v / 1000, this.b * 567 * v / 1000);
+		return new Color(this.r * 957 * v / 1000,
+		                 this.g * 784 * v / 1000,
+		                 this.b * 567 * v / 1000);
 	},
 
 	/**
@@ -444,7 +446,8 @@ Color.magenta = function(){
 };
 
 ImageProcessing.Color = Color;
-ImageProcessing.prototype.Color = function(r, g, b){
+
+ImageProcessing.prototype.color = function(r, g, b){
 	return new Color(r, g, b);
 };
 })();
@@ -612,7 +615,27 @@ ImageProcessing.prototype = {
 	},
 
 	/**
+	 * draw image
+	 * @param {HTMLImageElement|HTMLVideoElement} src image element
+	 * @param {number=0} x   left
+	 * @param {number=0} y   top
+	 * @param {number=}  w   image width
+	 * @param {number=}  h   image height
+	 * @return {ImageProcessing}
+	 */
+	drawImage: function(img, x, y, w, h){
+		if(!x) x = 0;
+		if(!y) y = 0;
+		if(!w) w = img.naturalWidth  || img.videoWidth  || img.width;
+		if(!h) h = img.naturalHeight || img.videoHeight || img.height;
+		this.context.drawImage(img, x, y, w, h);
+		if(this.locked) this.lock();
+		return this;
+	},
+
+	/**
 	 * clone ImageProcessing object
+	 * @return {ImageProcessing} cloned ImageProcessing
 	 */
 	clone: function(){
 		var ip = new ImageProcessing(this.canvas.cloneNode(true));
@@ -628,10 +651,7 @@ ImageProcessing.prototype = {
 		var w = this.canvas.width;
 		this.canvas.width = 0;
 		this.canvas.width = w;
-
-		if(this.locked)
-			this.lock();
-
+		if(this.locked) this.lock();
 		return this;
 	},
 
@@ -701,10 +721,8 @@ ImageProcessing.prototype = {
 	 */
 	index: function(index, px){
 		index *= 4;
-		var data = (
-			this.locked? this.tmp.imageData
-			           : this.getImageData()
-		).data;
+		var data = (this.locked? this.tmp.imageData
+			                     : this.getImageData()).data;
 
 		return new ImageProcessing.Color(data[index++],
 		                                 data[index++],
@@ -713,16 +731,16 @@ ImageProcessing.prototype = {
 	},
 
 	each: function(f){
-		var w = this.canvas.width;
-		var i = -1,
+		var w = this.canvas.width,
+		    i = -1,
 		    l = w * this.canvas.height;
 		while(++i < l) f.call(this, this.index(i), i % w, i / w >> 0, this);
 		return this;
 	},
 
 	blendEach: function(f){
-		var w = this.canvas.width;
-		var x, y,
+		var w = this.canvas.width,
+		    x, y,
 		    i = -1,
 		    l = w * this.canvas.height;
 
@@ -752,13 +770,13 @@ ImageProcessing.prototype = {
 	},
 
 	map: function(f){
-		var a = [];
-		var w = this.canvas.width;
-		var x, y,
+		var a = [],
+		    w = this.canvas.width,
+		    x, y,
 		    i = -1,
 		    l = w * this.canvas.height;
 
-		for(; ++i < l;){
+		while(++i < l){
 			x = i % w;
 			y = i / w >> 0;
 			a[i] = f.call(this, this.getPixel(x, y), x, y, this);
@@ -773,9 +791,7 @@ ImageProcessing.prototype = {
 		if(!width)  width  = this.width  || this.canvas.width;
 		if(!height) height = this.height || this.canvas.height;
 
-		var imageData = this.context.getImageData(from_x, from_y, width, height);
-
-		return imageData;
+		return this.context.getImageData(from_x, from_y, width, height);
 	},
 
 	putImageData: function(imageData, x, y){
@@ -817,41 +833,38 @@ ImageProcessing.prototype = {
 		if(typeof isLeftTop == "undefined")
 			isLeftTop = true;
 
-		var rect = [0, 0, this.canvas.width, this.canvas.height];
-
-		var color = isLeftTop
-			? this.getPixel(0, 0).toString()
-			: this.getPixel(this.canvas.width - 1, this.canvas.height - 1).toString();
+		var width  = this.canvas.width,
+		    height = this.canvas.height,
+		    rect   = [0, 0, width, height],
+		    color = isLeftTop? this.getPixel(0, 0).toString()
+			                   : this.getPixel(this.canvas.width - 1, this.canvas.height - 1)
+			                         .toString();
 
 		loop:
-		for(var x = 0; x < this.canvas.width; x++){
-			for(var y = 0; y < this.canvas.height; y++)
-				if(color != this.getPixel(x, y).toString())
-					break loop;
+		for(var x = 0; x < width; x++){
+			for(var y = 0; y < height; y++) if(color != this.getPixel(x, y).toString())
+				break loop;
 			rect[0]++;
 		}
 
 		loop:
-		for(y = 0; y < this.canvas.height; y++){
-			for(x = 0; x < this.canvas.width; x++)
-				if(color != this.getPixel(x, y).toString())
-					break loop;
+		for(y = 0; y < height; y++){
+			for(x = 0; x < width; x++) if(color != this.getPixel(x, y).toString())
+				break loop;
 			rect[1]++;
 		}
 
 		loop:
-		for(x = this.canvas.width - 1; x >= 0; x--){
-			for(y = this.canvas.height - 1; y >= 0; y--)
-				if(color != this.getPixel(x, y).toString())
-					break loop;
+		for(x = width - 1; x >= 0; x--){
+			for(y = height - 1; y >= 0; y--) if(color != this.getPixel(x, y).toString())
+				break loop;
 			rect[2]--;
 		}
 
 		loop:
-		for(y = this.canvas.height - 1; y >= 0; y--){
-			for(x = this.canvas.width - 1; x >= 0; x--)
-				if(color != this.getPixel(x, y).toString())
-					break loop;
+		for(y = height - 1; y >= 0; y--){
+			for(x = width - 1; x >= 0; x--) if(color != this.getPixel(x, y).toString())
+				break loop;
 			rect[3]--;
 		}
 
@@ -863,8 +876,7 @@ ImageProcessing.prototype = {
 		this.tmp.imageData = clip.getImageData();
 		this.update();
 
-		if(!this.locked)
-			this.unlock();
+		if(!this.locked) this.unlock();
 
 		return this;
 	},
@@ -882,7 +894,7 @@ ImageProcessing.prototype = {
 		    w = fromX + width,
 		    h = fromY + height;
 
-		for(; ++x < w;) for(y = fromY - 1; ++y < h;){
+		while(++x < w) for(y = fromY - 1; ++y < h;){
 			_color = this.getPixel(x, y);
 			color.r += _color.r;
 			color.g += _color.g;
@@ -979,9 +991,7 @@ ImageProcessing.prototype = {
 			var a = 255 / (max - min);
 			var b = - a * min;
 
-			return function(x){
-				return a * x + b;
-			};
+			return function(x){ return a * x + b; };
 		};
 
 		var f = {
@@ -997,43 +1007,45 @@ ImageProcessing.prototype = {
 		return this;
 	},
 
-	filter: function(flt, offset){
-		if(!offset) offset = 0;
+	filter: function(flt, offset, fn){
+		if(offset instanceof Function){
+			fn = offset;
+			offset = 0;
+		}
+		else if(!offset) offset = 0;
 
-		var supportPx = this.support.pixel;
-		var ip = new ImageProcessing(this.canvas.cloneNode(false));
-		var n  = parseInt(flt.length / 2);
+		var ip = new ImageProcessing(this.canvas.cloneNode(false)).lock(); // drawed canvas
+		var n  = flt.length / 2 >> 0 - 1;
 		var w  = this.canvas.width - n;
 		var h  = this.canvas.height - n;
 		var fl = flt.length;
 		var x, y,
 		    fx, fy, fv,
-		    px;
+		    px, tpx;
 
-		for(x = n-1; ++x < w;){
-			for(y = n-1; ++y < h;){
-				var c = new ImageProcessing.Color(offset, offset, offset);
+		for(x = -1; ++x < w;) for(y = -1; ++y < h;){
+			tpx = new ImageProcessing.Color(offset, offset, offset);
 
-				// filtering
-				fy = -1;
-				while(flt[++fy]){
-					fx = -1;
-					while(fv = flt[fy][++fx]){
-						px = this.getPixel(x + fx - n, y + fy - n);
-						c.r += px.r * fv;
-						c.g += px.g * fv;
-						c.b += px.b * fv;
-					}
-				}
-
-				ip.setPixel(x, y, c);
+			// filtering
+			for(fy = -1; flt[++fy];) for(fx = -1; ++fx < fl;) if(fv = flt[fy][fx]){
+				px = this.getPixel(x + fx - n, y + fy - n);
+				tpx.r += px.r * fv;
+				tpx.g += px.g * fv;
+				tpx.b += px.b * fv;
 			}
-		}
 
-		this.tmp.imageData = ip.getImageData(0, 0, this.canvas.width, this.canvas.height);
-		this.support.pixel = false;
-		this.update();
-		this.support.pixel = supportPx;
+			ip.setPixel(x, y, (fn && fn.call(this, tpx)) || tpx);
+		};
+
+		if(this.support.pixel){
+			this.putImageData(ip.getImageData());
+			if(this.locked) this.lock();
+		}
+		else{
+			this.setEach(function(px, x, y){
+				return ip.getPixel(x, y);
+			});
+		}
 
 		return this;
 	},
@@ -1048,29 +1060,27 @@ ImageProcessing.prototype = {
 		var h  = this.canvas.height - n;
 		var fl = fltw.length;
 
-		for(var x = n; x < w; x++){
-			for(var y = n; y < h; y++){
-				var cw = new ImageProcessing.Color(offset, offset, offset);
-				var ch = new ImageProcessing.Color(offset, offset, offset);
+		for(var x = n; x < w; x++) for(var y = n; y < h; y++){
+			var cw = new ImageProcessing.Color(offset, offset, offset);
+			var ch = new ImageProcessing.Color(offset, offset, offset);
 
-				// filtering
-				for(var fx = 0; fx < fl; fx++){
-					for(var fy = 0; fy < fl; fy++){
-						var px = this.getPixel(x + fx - n, y + fy - n);
-						var fvw = fltw[fy][fx];
-						var fvh = flth[fy][fx];
-						cw.r += px.r * fvw;
-						cw.g += px.g * fvw;
-						cw.b += px.b * fvw;
-						ch.r += px.r * fvh;
-						ch.g += px.g * fvh;
-						ch.b += px.b * fvh;
-					}
-				}
-
-				var c = new ImageProcessing.Color(Math.sqrt(cw.r * ch.r), Math.sqrt(cw.g * ch.g), Math.sqrt(cw.b * ch.b));
-				ip.setPixel(x, y, c);
+			// filtering
+			for(var fx = 0; fx < fl; fx++) for(var fy = 0; fy < fl; fy++){
+				var px = this.getPixel(x + fx - n, y + fy - n);
+				var fvw = fltw[fy][fx];
+				var fvh = flth[fy][fx];
+				cw.r += px.r * fvw;
+				cw.g += px.g * fvw;
+				cw.b += px.b * fvw;
+				ch.r += px.r * fvh;
+				ch.g += px.g * fvh;
+				ch.b += px.b * fvh;
 			}
+
+			var c = new ImageProcessing.Color(Math.sqrt(cw.r * ch.r),
+			                                  Math.sqrt(cw.g * ch.g),
+			                                  Math.sqrt(cw.b * ch.b));
+			ip.setPixel(x, y, c);
 		}
 
 		this.tmp.imageData = ip.getImageData(0, 0, this.canvas.width, this.canvas.height);
@@ -1107,24 +1117,14 @@ ImageProcessing.prototype = {
 		var w  = this.canvas.width - 1;
 		var h  = this.canvas.height - 1;
 
-		for(var x = 1; x < w; x++){
-			for(var y = 1; y < h; y++){
-				ip.setPixel(x, y, median(x, y));
-			}
+		for(var x = 1; x < w; x++) for(var y = 1; y < h; y++){
+			ip.setPixel(x, y, median(x, y));
 		}
 
 		this.tmp.imageData = this.getImageData(0, 0, this.canvas.width, this.canvas.height);
 		this.support.pixel = false;
 		this.update();
 		this.support.pixel = supportPx;
-
-		return this;
-
-		for(var x = 1, w = this.canvas.width - 1; x < w; x++){
-			for(var y = 1, h = this.canvas.height - 1; y < h; y++){
-				this.setPixel(x, y, median(x, y));
-			}
-		}
 
 		return this;
 	},
@@ -1136,118 +1136,108 @@ ImageProcessing.prototype = {
 	 */
 	mosaic: function(sizeW, sizeH, fn){
 		if(sizeH instanceof Function){
-			fn = sizeH;
-			sizeH = 0;
+			fn    = sizeH;
+			sizeH = sizeW;
 		}
-
-		if(!sizeH) sizeH = sizeW;
+		else if(!sizeH) sizeH = sizeW;
 
 		var w = this.canvas.width,
 		    h = this.canvas.height;
 		var sw, sh, px;
 
-		if(fn){
-			for(var x = 0; x < w; x += sizeW){
-				sw = (x + sizeW >= this.canvas.width) ? this.canvas.width  - 1 - x : sizeW;
+		if(fn) for(var x = 0; x < w; x += sizeW){
+			sw = (x + sizeW >= this.canvas.width) ? this.canvas.width  - 1 - x : sizeW;
 
-				for(var y = 0; y < h; y += sizeH){
-					sh = (y + sizeH >= this.canvas.height)? this.canvas.height - 1 - y : sizeH;
+			for(var y = 0; y < h; y += sizeH){
+				sh = (y + sizeH >= this.canvas.height)? this.canvas.height - 1 - y : sizeH;
 
-					this.context.fillStyle = fn.call(this, this.average(x, y, sw, sh)).toString();
-					this.context.fillRect(x, y, sizeW, sizeH);
-				}
+				this.context.fillStyle = fn.call(this, this.average(x, y, sw, sh), x, y).toString();
+				this.context.fillRect(x, y, sizeW, sizeH);
 			}
 		}
-		else{
-			for(var x = 0; x < w; x += sizeW){
-				sw = (x + sizeW >= this.canvas.width) ? this.canvas.width  - 1 - x : sizeW;
+		else for(var x = 0; x < w; x += sizeW){
+			sw = (x + sizeW >= this.canvas.width) ? this.canvas.width  - 1 - x : sizeW;
 
-				for(var y = 0; y < h; y += sizeH){
-					sh = (y + sizeH >= this.canvas.height)? this.canvas.height - 1 - y : sizeH;
+			for(var y = 0; y < h; y += sizeH){
+				sh = (y + sizeH >= this.canvas.height)? this.canvas.height - 1 - y : sizeH;
 
-					this.context.fillStyle = this.average(x, y, sw, sh).toString();
-					this.context.fillRect(x, y, sizeW, sizeH);
-				}
+				this.context.fillStyle = this.average(x, y, sw, sh).toString();
+				this.context.fillRect(x, y, sizeW, sizeH);
 			}
 		}
 
-		if(this.locked)
-			this.lock();
+		if(this.locked) this.lock();
 
 		return this;
 	},
 
 	grayScale: function(){
-		this.setEach(function(px, x, y, self){
-			return px.ntsc();
-		});
-
-		return this;
+		return this.setEach(function(px){ return px.ntsc(); });
 	},
 
 	threshold: function(v){
-		return this.setEach(function(px, x, y){
-			var p = px.average();
-			var c = (p <  v)? 0 : 255;
+		return this.setEach(function(px){
+			var c = (px.average() <  v)? 0 : 255;
 			return ImageProcessing.Color.fromRgb(c, c, c);
 		});
 	},
 
-	dither: function(pattern){
+	dither: function(pattern, fn){
 		var black = ImageProcessing.Color.black();
 		var white = ImageProcessing.Color.white();
 		var l = pattern.length;
 		var n = 256 / (l * l);
 
-		this.setEach(function(px, x, y){
-			return (px.grayScale().r > pattern[x % l][y % l] * n + l * l / 2) ? white : black;
-		});
+		if(fn){
+			return this.setEach(function(px, x, y){
+				var b = px.average() <= pattern[x % l][y % l] * n + l * l / 2;
+				return fn.call(this, b) || (b? black : white);
+			});
+		}
 
-		return this;
+		return this.setEach(function(px, x, y){
+			var b = px.average() <= pattern[x % l][y % l] * n + l * l / 2;
+			return b? black : white;
+		});
 	},
 
 	dither8: function(pattern){
 		var l = pattern.length;
 		var n = 256 / (l * l);
 
-		this.setEach(function(px, x, y){
-			return px.map(function(v, p, self){
+		return this.setEach(function(px, x, y){
+			return px.map(function(v){
 				return (v > pattern[x % l][y % l] * n + l * l / 2)? 255 : 0;
 			});
-
-			return px;
 		});
-
-		return this;
 	},
 
-	errorDiffuse: function(flt){
+	errorDiffuse: function(flt, fn){
 		var self = this;
 
 		// init
 		var w = this.canvas.width;
 		var h = this.canvas.height;
-		var sum = 0;                    // total of flt values
-		var tmp = [];                   // temporary colors
-		var fw  = flt[0].length;        // filter width
-		var cur = parseInt(fw / 2, 10); // current pixel (X) of flt
+		var fw = flt[0].length;
+		var fh = flt.length;
 
-		// init sum
-		flt.forEach(function(_){
-			_.forEach(function(n){
-				sum += n;
-			});
-		});
+		// sum flt values
+		var sum = 0,
+		    i, j;
 
-		// init tmp
-		for(var y = -1; ++y < h;){
-			tmp[y] = [];
-			for(var x = -1; ++x < w;){
-				tmp[y][x] = 0;
-			}
-		}
+		for(i = -1; ++i < fh;) for(j = -1; ++j < fw;)
+			sum += flt[i][j];
+
+		// temporary colors
+		var tmp = [];
+		var x, y;
+
+		for(y = -1; ++y < h;) for(x = -1; ++x < w;)
+			(tmp[y] || (tmp[y] = []))[x] = 0;
 
 		// filtering
+		var cur = fw / 2 >> 0; // current pixel (X) of flt
+
 		this.each(function(px, x, y){
 			var e;
 			var f = tmp[y][x] + px.grayScale().r;
@@ -1261,90 +1251,91 @@ ImageProcessing.prototype = {
 				e = f;
 			}
 
-			flt.forEach(function(_, ny){
-				var _y = y + ny;
-				if(_y >= h) return;
+			var _x, _y,
+			    fx, fy,
+			    v;
 
-				_.forEach(function(v, nx){
-					var _x = x + nx - cur;
+			for(fy = -1; ++fy < fh;){
+				_y = y + fy;
 
-					if(0 > _x || _x >= w || !flt[ny][nx]) return;
-					tmp[_y][_x] += e * v / sum;
+				if(_y < h) for(fx = -1; ++fx < fw;){
+					v  = flt[fy][fx];
+					_x = x + fx - cur;
 
-				});
-			});
+					if(0 <= _x && _x < w && v)
+						tmp[_y][_x] += e * v / sum;
+				}
+			}
 		});
 
-		tmp.forEach(function(_, y){
-			_.forEach(function(v, x){
-				v = (v > 127)? 255 : 0;
-				self.setPixel(x, y, new ImageProcessing.Color(v, v, v));
-			});
-		});
+		var white = new ImageProcessing.Color.white();
+		var black = new ImageProcessing.Color.black();
+
+		if(fn) for(y = -1; ++y < h;) for(x = -1; ++x < w;)
+			this.setPixel(x, y, fn.call(this, tmp[y][x] < 128));
+		else for(y = -1; ++y < h;) for(x = -1; ++x < w;)
+			this.setPixel(x, y, (tmp[y][x] < 128)? black : white);
 
 		return this;
 	},
 
 	/**
-	 * @param  process  ImageProcessing        background image
-	 * @param  aColor   ImageProcessing.Color  alpha color
-	 * @param  rColor   ImageProcessing.Color  range color
+	 * @param  {ImageProcessing}              process  background image
+	 * @param  {ImageProcessing.Color}        aColor   alpha color
+	 * @param  {ImageProcessing.Color|Number} rColor   range color
 	 * @return
 	 */
 	blueScreen: function(process, aColor, rColor){
-		if(!aColor) aColor = ImageProcessing.Color.fromHex(0x0000ff);
+		if(!aColor)
+			aColor = ImageProcessing.Color.fromHex(0x0000ff);
 
-		if(rColor instanceof Number) rColor = ImageProcessing.Color.fromRgb(rColor, rColor, rColor);
-		if(rColor instanceof Array)  rColor = ImageProcessing.Color.fromRgb,apply(null, rColor);
-		if(!rColor) rColor = ImageProcessing.Color.fromRgb(0, 0, 0);
+		if(rColor instanceof Number)
+			rColor = ImageProcessing.Color.fromRgb(rColor, rColor, rColor);
+		else if(!rColor)
+			rColor = ImageProcessing.Color.fromRgb(0, 0, 0);
 
-		var w = (this.canvas.width  < process.canvas.width) ? this.canvas.width  : process.canvas.width;
-		var h = (this.canvas.height < process.canvas.height)? this.canvas.height : process.canvas.height;
+		var w = (this.canvas.width  < process.canvas.width)? this.canvas.width 
+		                                                   : process.canvas.width;
+		var h = (this.canvas.height < process.canvas.height)? this.canvas.height
+		                                                    : process.canvas.height;
 
 		var black = ImageProcessing.Color.black();
 		var white = ImageProcessing.Color.white();
-		var ip = (new ImageProcessing(this.canvas)).lock();
+		var ip = (new ImageProcessing(this.canvas)).lock(); // alpha
 
 		// threshold
 		this.each(function(px, x, y){
 			if(px.toString() == aColor.toString())
 				ip.setPixel(x, y, white);
 			else{
-				var b = /false/.test(px.map(function(v, x){
-					return aColor[x] - rColor[x] < px[x] && px[x] < aColor[x] + rColor[x];
-				}));
-				if(!b)
-					ip.setPixel(x, y, white);
-				else
-					ip.setPixel(x, y, black);
-			}
-		});
+				var b = (aColor.r - rColor.r < px.r && px.r < aColor.r + rColor.r)
+				     && (aColor.g - rColor.g < px.g && px.g < aColor.g + rColor.g)
+				     && (aColor.b - rColor.b < px.b && px.b < aColor.b + rColor.b);
 
-		// blur
-		ip.filter([
+				ip.setPixel(x, y, b? white : black);
+			}
+		}).filter([
 			[0.15, 0.15, 0.15],
 			[0.15, 0,    0.15],
 			[0.15, 0.15, 0.15],
 		]);
 
 		// blend
-		for(var x = 0; x < w; x++){
-			for(var y = 0; y < h; y++){
-				var cOrigin = this.getPixel(x, y);
-				var cBlend  = process.getPixel(x, y);
+		for(var x = 0; x < w; x++) for(var y = 0; y < h; y++){
+			var cOrigin = this.getPixel(x, y);
+			var cBlend  = process.getPixel(x, y);
 
-				if(cOrigin.toString() == aColor.toString()){
-					this.setPixel(x, y, cBlend);
-				}
-				else{
-					var alpha = ip.getPixel(x, y).average() / 255;
+			if(cOrigin.toString() == aColor.toString()){
+				this.setPixel(x, y, cBlend);
+			}
+			else{
+				var alpha = ip.getPixel(x, y).g / 255;
 
-					cOrigin.each(function(v, p){
-						cOrigin[p] = (1 - alpha) * cOrigin[p] + alpha * cBlend[p];
-					});
+				cOrigin.each(function(v, p){
+					cOrigin[p] = (1 - alpha) * cOrigin[p] + alpha * cBlend[p];
+				});
 
-					this.setPixel(x, y, cOrigin);
-				}
+				this.setPixel(x, y, cOrigin);
 			}
 		}
 
@@ -1368,35 +1359,35 @@ ImageProcessing.prototype = {
 		if(!aColor) aColor = ImageProcessing.Color.fromHex(0x0000ff);
 		if(typeof soft == "undefined") soft = true;
 
-		var w = (this.canvas.width  < process.canvas.width) ? this.canvas.width  : process.canvas.width;
-		var h = (this.canvas.height < process.canvas.height)? this.canvas.height : process.canvas.height;
+		var w = (this.canvas.width  < process.canvas.width)? this.canvas.width 
+		                                                   : process.canvas.width;
+		var h = (this.canvas.height < process.canvas.height)? this.canvas.height
+		                                                    : process.canvas.height;
 
 		var black = ImageProcessing.Color.black();
 		var white = ImageProcessing.Color.white();
 		var ip = (new ImageProcessing(this.canvas)).lock();
 
 		// blend
-		for(var x = 0; x < w; x++){
-			for(var y = 0; y < h; y++){
-				var cOrigin = this.getPixel(x, y);
-				var cBlend  = process.getPixel(x, y);
+		for(var x = 0; x < w; x++) for(var y = 0; y < h; y++){
+			var cOrigin = this.getPixel(x, y);
+			var cBlend  = process.getPixel(x, y);
 
-				if(cOrigin.toString() == aColor.toString()){
-					this.setPixel(x, y, cBlend);
-				}
-				else if(soft){
-					var alpha = 8 * (ImageProcessing.Color.fromHex(0)).each(function(v, x, self){
-						self[x] = Math.abs(cOrigin[x] - aColor[x]);
-					}).geomean() / 255;
+			if(cOrigin.toString() == aColor.toString()){
+				this.setPixel(x, y, cBlend);
+			}
+			else if(soft){
+				var alpha = 8 * ImageProcessing.Color.fromHex(0).map(function(v, x){
+					return Math.abs(cOrigin[x] - aColor[x]);
+				}).geomean() / 255;
 
-					alpha = (alpha > 1) ? 1 : (alpha < 0)? 0 : alpha;
+				alpha = (alpha > 1)? 1
+				      : (alpha < 0)? 0
+				      : alpha;
 
-					cOrigin.each(function(v, p){
-						cOrigin[p] = alpha * cOrigin[p] + (1 - alpha) * cBlend[p];
-					});
-
-					this.setPixel(x, y, cOrigin);
-				}
+				this.setPixel(x, y, cOrigin.map(function(v, p){
+					return alpha * cOrigin[p] + (1 - alpha) * cBlend[p];
+				}));
 			}
 		}
 
@@ -1420,16 +1411,12 @@ ImageProcessing.prototype = {
 		var w = (this.canvas.width  < lw)? this.canvas.width  : lw;
 		var h = (this.canvas.height < th)? this.canvas.height : th;
 
-		for(var x = lx - 1; ++x < w;){
-			for(var y = ty - 1; ++y < h;){
-				var cBlend = process.getPixel(x - lx, y - ty);
+		for(var x = lx - 1; ++x < w;) for(var y = ty - 1; ++y < h;){
+			var cBlend = process.getPixel(x - lx, y - ty);
 
-				var px = this.getPixel(x, y).each(function(v, p, self){
-					self[p] = self[p] * (1 - alpha) + cBlend[p] * alpha;
-				});
-
-				this.setPixel(x, y, px);
-			}
+			this.setPixel(x, y, this.getPixel(x, y).map(function(v, p, self){
+				return v * (1 - alpha) + cBlend[p] * alpha;
+			}));
 		}
 
 		return this;
@@ -1471,7 +1458,7 @@ ImageProcessing.prototype.initPixelControl.imageData = {
 	},
 
 	setPixel: function(x, y, pixel){
-		pixel = pixel.round();
+		//pixel = pixel.round();
 
 		if(this.locked){
 			var n = x * 4 + y * this.canvas.width * 4;
